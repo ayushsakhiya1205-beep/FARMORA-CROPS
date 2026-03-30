@@ -1,0 +1,52 @@
+.hover-video-section {
+  padding: 80px 20px;
+  background: #f7fdf8;
+}
+
+.video-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+/* SIMPLE RECTANGLE VIDEO */
+.video-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;   /* round corners */
+  cursor: pointer;
+}
+
+/* REMOVE SHADOW / CARD LOOK */
+.video-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.video-card video {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+  display: block;
+  border-radius: 16px;
+}
+
+/* OPTIONAL TEXT OVERLAY */
+.video-title {
+  position: absolute;
+  bottom: 10px;
+  left: 15px;
+  color: white;
+  font-weight: 600;
+  background: rgba(0,0,0,0.4);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .video-row {
+    grid-template-columns: 1fr;
+  }
+}

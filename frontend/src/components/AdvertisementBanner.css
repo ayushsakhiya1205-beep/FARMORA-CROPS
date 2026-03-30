@@ -1,0 +1,88 @@
+/* ===== WRAPPER ===== */
+.advertisement-banner {
+  margin: 40px auto;
+  display: flex;
+  justify-content: center;
+  background: transparent;
+}
+
+/* ===== SLIDER ===== */
+.banner-slider {
+  position: relative;
+  display: inline-block; /* 🔥 width image ke hisab se */
+  max-width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+/* ===== SLIDES OVERLAY (IMPORTANT) ===== */
+.banner-slide {
+  position: absolute;
+  inset: 0; /* top:0 left:0 right:0 bottom:0 */
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.banner-slide.active {
+  opacity: 1;
+  position: relative; /* 🔥 height maintain karega */
+}
+
+/* ===== STRUCTURE ===== */
+.banner-link,
+.banner-content,
+.banner-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== IMAGE ===== */
+.banner-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 20px;
+}
+
+/* ===== DOTS ===== */
+.banner-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.banner-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.9);
+  background: transparent;
+  cursor: pointer;
+}
+
+.banner-dot.active {
+  background: #fff;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .advertisement-banner {
+    margin: 20px auto;
+  }
+
+  .banner-slider,
+  .banner-image img {
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .banner-slider,
+  .banner-image img {
+    border-radius: 12px;
+  }
+}
