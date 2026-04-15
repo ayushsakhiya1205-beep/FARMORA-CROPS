@@ -1,26 +1,43 @@
 const nodemailer = require('nodemailer');
 
 // Get email configuration
-const getEmailConfig = () => {
-  const emailUser = process.env.EMAIL_USER;
-  const emailPassword = process.env.EMAIL_PASSWORD;
+// const getEmailConfig = () => {
+//   const emailUser = process.env.EMAIL_USER;
+//   const emailPassword = process.env.EMAIL_PASSWORD;
   
-  // Check if email is configured
-  if (!emailUser || !emailPassword || 
-      emailUser === 'your-email@gmail.com' || 
-      emailPassword === 'your-app-password') {
+//   // Check if email is configured
+//   if (!emailUser || !emailPassword || 
+//       emailUser === 'your-email@gmail.com' || 
+//       emailPassword === 'your-app-password') {
+//     return null;
+//   }
+  
+//   return {
+//     service: 'gmail',
+//     auth: {
+//       user: emailUser,
+//       pass: emailPassword
+//     }
+//   };
+// };
+const getEmailConfig = () => {
+  const smtpUser = process.env.EMAIL_USER;
+  const smtpPass = process.env.BREVO_API_KEY;
+
+  if (!smtpUser || !smtpPass) {
     return null;
   }
-  
+
   return {
-    service: 'gmail',
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
     auth: {
-      user: emailUser,
-      pass: emailPassword
+      user: smtpUser,
+      pass: smtpPass
     }
   };
 };
-
 // Create transporter only if email is configured
 let transporter = null;
 const initTransporter = () => {
