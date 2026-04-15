@@ -14,7 +14,7 @@ require('dotenv').config();
 
 // Import email service to test configuration
 
-const { testEmailConfig } = require('./config/email');
+//const { testEmailConfig } = require('./config/email');
 
 
 
@@ -108,19 +108,19 @@ const PORT = process.env.PORT || 8000;
 
 // Test email configuration on startup
 
-testEmailConfig().then(isReady => {
+// testEmailConfig().then(isReady => {
 
-  if (isReady) {
+//   if (isReady) {
 
-    console.log('✅ Email service is ready to send OTPs');
+//     console.log('✅ Email service is ready to send OTPs');
 
-  } else {
+//   } else {
 
-    console.log('⚠️  Email service not configured - OTPs will be shown in console');
+//     console.log('⚠️  Email service not configured - OTPs will be shown in console');
 
-  }
+//   }
 
-});
+// });
 
 
 
