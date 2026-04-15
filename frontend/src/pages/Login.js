@@ -251,7 +251,7 @@ const response = await fetch(
 
 
 
-      const response = await fetch('http://localhost:8000/api/auth/verify-otp', {
+      const response = await fetch('https://farmora-crops.onrender.com/api/auth/verify-otp', {
 
         method: 'POST',
 
