@@ -164,8 +164,63 @@ router.put('/orders/:id/process', auth, authorize('outletManager'), async (req, 
 
 
 
-// @route   PUT /api/outlet/orders/:id/assign
+// @route   PUT /api/outlet/orders/:id/cancel
+// @desc    Cancel order (Outlet Manager)
+// @access  Private (Outlet Manager)
+router.put('/orders/:id/cancel', auth, authorize('outletManager'), async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
 
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    if (order.outletId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (['delivered', 'completed', 'cancelled'].includes(order.orderStatus)) {
+      return res.status(400).json({ message: `Cannot cancel an order that is ${order.orderStatus}` });
+    }
+
+    order.orderStatus = 'cancelled';
+    order.cancellationReason = req.body.cancellationReason || 'Cancelled by outlet manager';
+    
+    await order.save();
+
+    res.json({ message: 'Order cancelled successfully', order });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/outlet/orders/:id
+// @desc    Delete completed order
+// @access  Private (Outlet Manager)
+router.delete('/orders/:id', auth, authorize('outletManager'), async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    if (order.outletId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    if (!['delivered', 'completed'].includes(order.orderStatus)) {
+      return res.status(400).json({ message: 'Only completed or delivered orders can be deleted by outlet manager' });
+    }
+
+    order.orderStatus = 'archived';
+    await order.save();
+    res.json({ message: 'Order archived and removed from queue successfully' });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/outlet/orders/:id/assign
 // @desc    Assign delivery boy to order
 
 // @access  Private (Outlet Manager)
@@ -342,14 +397,10 @@ router.get('/delivery-boys', auth, authorize('outletManager'), async (req, res) 
   try {
 
     const deliveryBoys = await User.find({
-
       role: 'delivery_boy',
-
       outletId: req.user._id,
-
       isActive: true
-
-    }).select('name phone email');
+    }).select('name phone email vehicle available');
 
 
 
@@ -391,7 +442,7 @@ router.get('/stats', auth, authorize('outletManager'), async (req, res) => {
 
       outletId: req.user._id, 
 
-      orderStatus: { $in: ['delivered', 'completed'] } 
+      orderStatus: { $in: ['delivered', 'completed', 'archived'] } 
 
     });
 

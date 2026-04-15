@@ -218,14 +218,17 @@ const userSchema = new mongoose.Schema(
 
 
 
-      enum: ['customer', 'outletManager'],
-
-
-
+      enum: ['customer', 'outletManager', 'delivery_boy'],
       default: 'customer'
-
-
-
+    },
+    vehicle: {
+      type: String,
+      enum: ['Bike', 'Scooter', 'Tempo', 'Truck', 'Van'],
+      default: 'Bike'
+    },
+    available: {
+      type: Boolean,
+      default: true
     },
 
 

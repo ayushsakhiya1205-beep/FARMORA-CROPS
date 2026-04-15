@@ -67,338 +67,147 @@ const generateOrderInvoiceWithPuppeteer = async (orderDetails, customerName, cus
       <html>
       <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Order Invoice - Farmora Crops</title>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Plus Jakarta Sans', sans-serif; background: #ffffff; color: #1e293b; padding: 30px; }
+          .invoice-box { max-width: 800px; margin: auto; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border-radius: 16px; border: 1px solid #f1f5f9; position: relative; overflow: hidden; }
           
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: white;
-            padding: 20px;
-            font-size: 12px;
-          }
+          /* Top Gradient Bar */
+          .invoice-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(90deg, #16a34a, #22c55e); }
           
-          .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border: 1px solid #ddd;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-          }
+          header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px dashed #f1f5f9; }
+          .logo { font-size: 32px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+          .title { text-align: right; }
+          .title h1 { font-size: 36px; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+          .title p { color: #64748b; font-size: 15px; font-weight: 600; margin-top: 5px; }
           
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #114714;
-          }
+          .info-grid { display: flex; justify-content: space-between; margin-bottom: 40px; gap: 20px; }
+          .info-col { flex: 1; padding: 25px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; }
+          .info-col h3 { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1.5px; margin-bottom: 12px; }
+          .info-col p { font-size: 14px; color: #334155; margin-bottom: 6px; font-weight: 500; }
+          .info-col p strong { color: #0f172a; }
           
-          .logo {
-            font-size: 32px;
-            font-weight: bold;
-            color: #114714;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-          }
+          .status-badge { display: inline-block; padding: 4px 12px; background: #dcfce7; color: #166534; border-radius: 30px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
           
-          .invoice-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-top: 10px;
-          }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #16a34a; color: white; padding: 14px 20px; text-align: left; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+          th:first-child { border-radius: 8px 0 0 8px; }
+          th:last-child { border-radius: 0 8px 8px 0; text-align: right; }
+          td { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; font-size: 15px; color: #334155; font-weight: 500; }
+          td:last-child { text-align: right; font-weight: 700; color: #0f172a; }
           
-          .invoice-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-          }
+          .summary { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+          .summary-box { width: 350px; background: #f8fafc; padding: 25px; border-radius: 12px; }
+          .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 15px; color: #64748b; }
+          .summary-row.total { font-size: 24px; font-weight: 800; color: #16a34a; margin-top: 15px; padding-top: 15px; border-top: 2px dashed #cbd5e1; }
           
-          .invoice-info {
-            flex: 1;
-          }
+          .footer-grid { display: flex; gap: 20px; margin-bottom: 30px; }
+          .footer-box { flex: 1; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; }
+          .footer-box h4 { font-size: 14px; color: #0f172a; margin-bottom: 10px; }
+          .footer-box p { font-size: 13px; color: #64748b; line-height: 1.6; }
           
-          .invoice-info h3 {
-            margin: 0 0 15px 0;
-            color: #114714;
-            font-size: 16px;
-            border-bottom: 2px solid #114714;
-            padding-bottom: 5px;
-          }
+          .thanks { text-align: center; color: #94a3b8; font-size: 13px; margin-top: 50px; padding-top: 30px; border-top: 1px solid #f1f5f9; }
           
-          .invoice-info p {
-            margin: 8px 0;
-            font-size: 12px;
-            line-height: 1.4;
-          }
-          
-          .invoice-info strong {
-            color: #114714;
-            font-weight: 600;
-          }
-          
-          .order-items {
-            margin: 30px 0;
-          }
-          
-          .order-items h3 {
-            color: #114714;
-            margin-bottom: 20px;
-            font-size: 18px;
-            border-bottom: 2px solid #114714;
-            padding-bottom: 8px;
-          }
-          
-          .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 11px;
-          }
-          
-          .items-table th {
-            background: #114714;
-            color: white;
-            padding: 12px 8px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 12px;
-            border: 1px solid #114714;
-          }
-          
-          .items-table td {
-            padding: 10px 8px;
-            border: 1px solid #ddd;
-            vertical-align: top;
-          }
-          
-          .items-table tr:nth-child(even) {
-            background: #f8f9fa;
-          }
-          
-          .total-section {
-            margin: 30px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-          }
-          
-          .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
-            font-size: 14px;
-            align-items: center;
-          }
-          
-          .total-row.grand-total {
-            font-size: 18px;
-            font-weight: bold;
-            color: #114714;
-            border-top: 2px solid #114714;
-            padding-top: 15px;
-            margin-top: 20px;
-          }
-          
-          .delivery-info {
-            margin: 30px 0;
-            padding: 20px;
-            background: #e8f5e8;
-            border-radius: 8px;
-            border-left: 4px solid #114714;
-            border: 1px solid #c3e6cb;
-          }
-          
-          .delivery-info h3 {
-            color: #114714;
-            margin-bottom: 15px;
-            font-size: 16px;
-          }
-          
-          .delivery-info p {
-            margin: 8px 0;
-            font-size: 12px;
-            line-height: 1.4;
-          }
-          
-          .tracking-info {
-            margin: 20px 0;
-            padding: 15px;
-            background: #fff3cd;
-            border-radius: 8px;
-            border-left: 4px solid #ffc107;
-            border: 1px solid #ffeaa7;
-          }
-          
-          .tracking-info h3 {
-            color: #856404;
-            margin-bottom: 10px;
-            font-size: 14px;
-          }
-          
-          .tracking-info p {
-            margin: 5px 0;
-            font-size: 11px;
-            line-height: 1.4;
-          }
-          
-          .tracking-id {
-            background: #f8f9fa;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-weight: bold;
-            border: 1px solid #dee2e6;
-            display: inline-block;
-          }
-          
-          .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            text-align: center;
-            color: #666;
-            font-size: 10px;
-          }
-          
-          .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            background: #ffc107;
-            color: #000;
-            border: 1px solid #e0a800;
-          }
-          
-          .watermark {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 120px;
-            color: rgba(17, 71, 20, 0.05);
-            font-weight: bold;
-            z-index: -1;
-            pointer-events: none;
-          }
-          
-          @media print {
-            body { margin: 0; }
-            .container { box-shadow: none; border: 1px solid #000; }
-          }
+          .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 140px; color: rgba(22, 163, 74, 0.03); font-weight: 900; z-index: -1; pointer-events: none; white-space: nowrap; }
         </style>
       </head>
       <body>
-        <div class="watermark">FARMORA CROPS</div>
-        <div class="container">
-          <div class="header">
-            <div class="logo">
-              🌾 Farmora Crops
-            </div>
-            <div class="invoice-title">Order Invoice</div>
-          </div>
+        <div class="invoice-box">
+          <div class="watermark">FARMORA</div>
           
-          <div class="invoice-header">
-            <div class="invoice-info">
-              <h3>Invoice Details</h3>
-              <p><strong>Invoice #:</strong> ${orderDetails._id}</p>
-              <p><strong>Date:</strong> ${new Date(orderDetails.createdAt).toLocaleDateString()}</p>
-              <p><strong>Status:</strong> <span class="status-badge">${orderDetails.orderStatus}</span></p>
+          <header>
+            <div class="logo">🌾 Farmora</div>
+            <div class="title">
+              <h1>Invoice</h1>
+              <p>#${orderDetails._id.toString().slice(-8).toUpperCase()}</p>
             </div>
-            <div class="invoice-info">
-              <h3>Customer Information</h3>
-              <p><strong>Name:</strong> ${customerName}</p>
-              <p><strong>Email:</strong> ${customerEmail}</p>
-              <p><strong>Phone:</strong> ${orderDetails.deliveryAddress?.phone || 'N/A'}</p>
-            </div>
-            <div class="invoice-info">
-              <h3>📍 Delivery Address (from Cart)</h3>
-              <p><strong>Address:</strong> ${orderDetails.deliveryAddress?.address || 'N/A'}</p>
-              <p><strong>District:</strong> ${orderDetails.deliveryAddress?.district || 'N/A'}</p>
-              <p><strong>State:</strong> ${orderDetails.deliveryAddress?.state || 'N/A'}</p>
-              <p><strong>Pincode:</strong> ${orderDetails.deliveryAddress?.pincode || 'N/A'}</p>
-              <p><strong>Phone:</strong> ${orderDetails.deliveryAddress?.phone || 'N/A'}</p>
-            </div>
-          </div>
+          </header>
           
-          <div class="order-items">
-            <h3>Order Items</h3>
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th style="width: 40%">Product Name</th>
-                  <th style="width: 15%">Quantity</th>
-                  <th style="width: 15%">Unit Price</th>
-                  <th style="width: 15%">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${orderDetails.items.map(item => `
-                  <tr>
-                    <td>${item.name}</td>
-                    <td>${item.quantity} ${item.unit}</td>
-                    <td>₹${item.price.toFixed(2)}</td>
-                    <td>₹${(item.price * item.quantity).toFixed(2)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+          <div class="info-grid">
+            <div class="info-col">
+              <h3>Billed To</h3>
+              <p><strong>${customerName}</strong></p>
+              <p>${customerEmail}</p>
+              <p>${orderDetails.deliveryAddress?.mobileNumber || orderDetails.deliveryAddress?.phone || 'N/A'}</p>
+            </div>
             
-            <div class="total-section">
-              <div class="total-row">
-                <span>Subtotal:</span>
-                <span>₹${(orderDetails.totalAmount || orderDetails.finalAmount || 0).toFixed(2)}</span>
+            <div class="info-col">
+              <h3>Shipping Address</h3>
+              <p>
+                ${orderDetails.deliveryAddress?.houseNo ? orderDetails.deliveryAddress.houseNo + ', ' : ''}
+                ${orderDetails.deliveryAddress?.street || orderDetails.deliveryAddress?.address?.split(',')[1]?.trim() || orderDetails.deliveryAddress?.address?.split(',')[0]?.trim() || 'N/A'}
+              </p>
+              <p>
+                ${[orderDetails.deliveryAddress?.area, orderDetails.deliveryAddress?.taluka].filter(Boolean).join(', ')}
+              </p>
+              <p>
+                ${[orderDetails.deliveryAddress?.city || orderDetails.deliveryAddress?.district, orderDetails.deliveryAddress?.state].filter(Boolean).join(', ')} 
+                ${orderDetails.deliveryAddress?.pincode ? '- ' + orderDetails.deliveryAddress.pincode : ''}
+              </p>
+            </div>
+            
+            <div class="info-col">
+              <h3>Invoice Details</h3>
+              <p><strong>Date:</strong> ${new Date(orderDetails.createdAt).toLocaleDateString()}</p>
+              <p><strong>Status:</strong> <span class="status-badge">${orderDetails.orderStatus === 'archived' ? 'Completed' : orderDetails.orderStatus}</span></p>
+              <p><strong>Payment:</strong> ${orderDetails.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online'}</p>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orderDetails.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity} ${item.unit}</td>
+                  <td>₹${item.price.toFixed(2)}</td>
+                  <td>₹${(item.price * item.quantity).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <div class="summary-box">
+              <div class="summary-row">
+                <span>Subtotal</span>
+                <span>₹${(orderDetails.totalAmount || 0).toFixed(2)}</span>
               </div>
-              <div class="total-row">
-                <span>Delivery Charges:</span>
-                <span>FREE</span>
+              <div class="summary-row">
+                <span>Shipping Fee</span>
+                <span>${orderDetails.deliveryFee > 0 ? '₹' + orderDetails.deliveryFee.toFixed(2) : 'FREE'}</span>
               </div>
-              <div class="total-row grand-total">
-                <span>Total Amount:</span>
+              <div class="summary-row total">
+                <span>Total Due</span>
                 <span>₹${(orderDetails.finalAmount || orderDetails.totalAmount || 0).toFixed(2)}</span>
               </div>
             </div>
           </div>
           
-          <div class="delivery-info">
-            <h3>📦 Shipping Information</h3>
-            <p><strong>Estimated Delivery:</strong> ${estimatedDeliveryDays} business days</p>
-            <p><strong>Payment Method:</strong> ${orderDetails.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</p>
-            <p><strong>Order Status:</strong> <span class="status-badge">${orderDetails.orderStatus}</span></p>
+          <div class="footer-grid">
+            <div class="footer-box">
+              <h4>📦 Shipping Info</h4>
+              <p>Estimated Delivery: <strong>${estimatedDeliveryDays} Business Days</strong></p>
+              <p>Our delivery executive will contact you prior to arrival at the shipping address.</p>
+            </div>
+            <div class="footer-box">
+              <h4>💬 Need Help?</h4>
+              <p>Email: support@farmoracrops.com</p>
+              <p>Call: +91-9876543210</p>
+            </div>
           </div>
           
-          <div class="tracking-info">
-            <h3>📍 Order Tracking</h3>
-            <p><strong>Tracking ID:</strong> <span class="tracking-id">${orderDetails._id}</span></p>
-            <p>You can track your order status using this tracking ID on our website or mobile app.</p>
-            <p><strong>Customer Support:</strong> support@farmoracrops.com | +91-XXXXXXXXXX</p>
-          </div>
-          
-          <div class="footer">
-            <p>© 2024 Farmora Crops. All rights reserved.</p>
-            <p>Thank you for choosing Farmora Crops for your organic agricultural needs!</p>
-            <p>This is an automated invoice. Please keep it for your records.</p>
-            <p>Generated on: ${new Date().toLocaleString()}</p>
+          <div class="thanks">
+            <p><strong>Thank you for your business!</strong><br/>Generated automatically on ${new Date().toLocaleString()}</p>
           </div>
         </div>
       </body>

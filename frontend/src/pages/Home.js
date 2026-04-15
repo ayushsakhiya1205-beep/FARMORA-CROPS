@@ -111,7 +111,7 @@ const Home = () => {
     </div>
   </div>
 
-  <div class="pill blue">
+  <div class="pill green">
     <div class="inner">
       <img src="/image/reach/c.png" alt="Resellers"></img>
     </div>

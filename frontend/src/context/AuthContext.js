@@ -161,6 +161,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userType');
+    localStorage.removeItem('outletId');
     setToken(null);
     setUser(null);
     setUserType(null);
@@ -197,6 +198,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(res.data.user));
 
         localStorage.setItem('userType', res.data.userType);
+
+        if (res.data.userType === 'outlet' && (res.data.user._id || res.data.user.id)) {
+          localStorage.setItem('outletId', res.data.user._id || res.data.user.id);
+        }
 
       }
 
@@ -253,6 +258,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(userData));
 
         localStorage.setItem('userType', newUserType);
+
+        if (newUserType === 'outlet' && (userData._id || userData.id)) {
+          localStorage.setItem('outletId', userData._id || userData.id);
+        }
 
         
 
@@ -327,6 +336,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(newUser));
 
         localStorage.setItem('userType', newUserType);
+
+        if (newUserType === 'outlet' && (newUser._id || newUser.id)) {
+          localStorage.setItem('outletId', newUser._id || newUser.id);
+        }
 
         
 

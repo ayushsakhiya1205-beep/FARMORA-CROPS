@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { API_URL } from '../config';
@@ -6,6 +7,7 @@ import './Orders.css';
 
 const Orders = () => {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reminders, setReminders] = useState([]);
@@ -154,6 +156,28 @@ const Orders = () => {
     });
   };
 
+  const handleReorder = async (order) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Add all items to cart sequentially
+      for (const item of order.items) {
+        await axios.post(
+          `${API_URL}/api/cart`,
+          { productId: item.productId, quantity: item.quantity },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      
+      alert('Items from this order have been added to your cart!');
+      navigate('/cart');
+    } catch (error) {
+      console.error('Error adding items to cart:', error);
+      alert('Failed to reorder some items. They may be out of stock.');
+    }
+  };
+
   const cancelEditAddress = () => {
     setEditingAddress(null);
     setUpdatedAddress({
@@ -215,6 +239,8 @@ const Orders = () => {
       assigned: '#00bcd4',
       out_for_delivery: '#3f51b5',
       delivered: '#114714',
+      completed: '#28a745',
+      archived: '#28a745',
       cancelled: '#f44336'
     };
     return colors[status] || '#666';
@@ -223,7 +249,7 @@ const Orders = () => {
   const getPaymentMethodDisplay = (paymentMethod) => {
     const methods = {
       cod: { name: 'Cash on Delivery', icon: '💵', color: '#28a745' },
-      card: { name: 'Credit/Debit Card', icon: '💳', color: '#007bff' },
+      card: { name: 'Credit/Debit Card', icon: '💳', color: '#114714' },
       upi: { name: 'UPI Payment', icon: '📱', color: '#6f42c1' },
       razorpay: { name: 'Razorpay Online Payment', icon: '💳', color: '#ff6b35' }
     };
@@ -302,7 +328,7 @@ const Orders = () => {
                       <span
                         style={{ backgroundColor: getStatusColor(order.orderStatus) }}
                       >
-                        {order.orderStatus.replace('_', ' ').toUpperCase()}
+                        {order.orderStatus === 'archived' ? 'COMPLETED' : order.orderStatus.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
                   </div>
@@ -343,6 +369,15 @@ const Orders = () => {
                         style={{ marginLeft: '10px' }}
                       >
                         🗑️ Delete Order
+                      </button>
+                    )}
+                    {user?.role === 'customer' && (order.orderStatus === 'archived' || order.orderStatus === 'delivered' || order.orderStatus === 'completed') && (
+                      <button
+                        onClick={() => handleReorder(order)}
+                        className="btn btn-primary"
+                        style={{ marginLeft: '10px', backgroundColor: '#3b82f6', borderColor: '#3b82f6', color: 'white' }}
+                      >
+                        🔄 Reorder
                       </button>
                     )}
                   </div>
@@ -448,16 +483,27 @@ const Orders = () => {
                       </div>
                     ) : (
                       <div className="address-details">
-                        {/* Show updated address fields */}
-                        <p><strong>House No:</strong> {order.deliveryAddress.houseNo || order.deliveryAddress.address?.split(',')[0]?.trim() || ''}</p>
-                        <p><strong>Street:</strong> {order.deliveryAddress.street || order.deliveryAddress.address?.split(',')[1]?.trim() || ''}</p>
-                        <p><strong>Area:</strong> {order.deliveryAddress.area || order.deliveryAddress.address?.split(',')[2]?.trim() || ''}</p>
-                        <p><strong>Taluka:</strong> {order.deliveryAddress.taluka || order.deliveryAddress.address?.split(',')[3]?.trim() || ''}</p>
-                        <p><strong></strong> {order.deliveryAddress.city || ''}</p>
-                        <p><strong>State:</strong> {order.deliveryAddress.state || ''}</p>
-                        <p><strong>District:</strong> {order.deliveryAddress.district || order.deliveryAddress.city || ''}</p>
-                        <p><strong>Pincode:</strong> {order.deliveryAddress.pincode || ''}</p>
-                        <p><strong>Mobile Number:</strong> {order.deliveryAddress.mobileNumber || order.deliveryAddress.phone || ''}</p>
+                        <div className="address-text-block">
+                          <p className="address-line">
+                            {order.deliveryAddress.houseNo || order.deliveryAddress.address?.split(',')[0]?.trim() || ''}
+                            {(order.deliveryAddress.houseNo || order.deliveryAddress.address?.split(',')[0]) && (order.deliveryAddress.street || order.deliveryAddress.address?.split(',')[1]) ? ', ' : ''}
+                            {order.deliveryAddress.street || order.deliveryAddress.address?.split(',')[1]?.trim() || ''}
+                          </p>
+                          {(order.deliveryAddress.area || order.deliveryAddress.address?.split(',')[2]?.trim() || order.deliveryAddress.taluka || order.deliveryAddress.address?.split(',')[3]?.trim()) && (
+                            <p className="address-line">
+                              {order.deliveryAddress.area || order.deliveryAddress.address?.split(',')[2]?.trim() || ''}
+                              {(order.deliveryAddress.area || order.deliveryAddress.address?.split(',')[2]) && (order.deliveryAddress.taluka || order.deliveryAddress.address?.split(',')[3]) ? ', ' : ''}
+                              {order.deliveryAddress.taluka || order.deliveryAddress.address?.split(',')[3]?.trim() || ''}
+                            </p>
+                          )}
+                          <p className="address-line">
+                            {[order.deliveryAddress.city || order.deliveryAddress.district, order.deliveryAddress.state].filter(Boolean).join(', ')} 
+                            {order.deliveryAddress.pincode ? ` - ${order.deliveryAddress.pincode}` : ''}
+                          </p>
+                          <p className="address-phone">
+                            <strong>Mobile:</strong> {order.deliveryAddress.mobileNumber || order.deliveryAddress.phone || 'N/A'}
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -468,12 +514,16 @@ const Orders = () => {
                   <div className="order-address">
                     <h4>📍 User Address</h4>
                     <div className="address-details">
-                      <p><strong>Street:</strong> {user.address || 'N/A'}</p>
-                      <p><strong>City:</strong> {user.city || 'N/A'}</p>
-                      <p><strong>District:</strong> {user.district || 'N/A'}</p>
-                      <p><strong>State:</strong> {user.state || 'N/A'}</p>
-                      <p><strong>Pincode:</strong> {user.pincode || 'N/A'}</p>
-                      <p><strong>Phone:</strong> {user.phone || 'N/A'}</p>
+                      <div className="address-text-block">
+                        <p className="address-line">{user.address || 'N/A'}</p>
+                        <p className="address-line">
+                          {[user.city || user.district, user.state].filter(Boolean).join(', ')}
+                          {user.pincode ? ` - ${user.pincode}` : ''}
+                        </p>
+                        <p className="address-phone">
+                          <strong>Mobile:</strong> {user.phone || 'N/A'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

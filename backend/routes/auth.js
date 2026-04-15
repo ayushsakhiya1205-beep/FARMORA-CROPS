@@ -384,6 +384,7 @@ router.post(
           token,
           userType: 'outlet',
           user: {
+            _id: outlet._id,
             id: outlet._id,
             name: outlet.name,
             email: outlet.outletEmail,
@@ -432,6 +433,7 @@ router.post(
           token,
           userType: 'customer',
           user: {
+            _id: user._id,
             id: user._id,
             name: user.name,
             email: user.email,
@@ -527,6 +529,7 @@ router.post(
           token,
           userType: 'outlet',
           user: {
+            _id: outlet._id,
             id: outlet._id,
             name: outlet.name,
             email: outlet.outletEmail,
@@ -582,6 +585,7 @@ router.post(
           token,
           userType: 'customer',
           user: {
+            _id: user._id,
             id: user._id,
             name: user.name,
             email: user.email,
@@ -641,6 +645,7 @@ router.get('/me', auth, async (req, res) => {
       success: true,
       userType,
       user: {
+        _id: user._id,
         id: user._id,
         name: user.name,
         email: user.email || user.outletEmail,

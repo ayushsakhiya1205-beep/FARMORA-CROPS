@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { API_URL, getImageUrl } from '../config';
@@ -12,6 +12,7 @@ const ProductDetail = () => {
   const { user } = useContext(AuthContext);
 
   const [product, setProduct] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // quantity = number of cans for oil, normal units for others
@@ -34,6 +35,17 @@ const ProductDetail = () => {
         setQuantity(1);
       } else {
         setQuantity(1);
+      }
+
+      // Fetch recommendations
+      try {
+        const allRes = await axios.get(`${API_URL}/api/products`);
+        const allProducts = allRes.data;
+        const others = allProducts.filter(p => p._id !== id);
+        const shuffled = others.sort(() => 0.5 - Math.random());
+        setRecommendations(shuffled.slice(0, 5));
+      } catch (err) {
+        console.error('Failed to fetch recommendations', err);
       }
 
       setLoading(false);
@@ -245,6 +257,31 @@ const ProductDetail = () => {
           </div>
 
         </div>
+
+        {/* Recommendations Section */}
+        {recommendations.length > 0 && (
+          <div className="recommendations-section">
+            <h2>You Might Also Like</h2>
+            <div className="recommendations-grid">
+              {recommendations.map(item => (
+                <Link key={item._id} to={`/products/${item._id}`} className="recommendation-card" onClick={() => window.scrollTo(0,0)}>
+                  <div className="rec-image">
+                    {item.image ? (
+                      <img src={getImageUrl(item.image)} alt={item.name} />
+                    ) : (
+                      <div className="rec-placeholder">🌾</div>
+                    )}
+                  </div>
+                  <div className="rec-info">
+                    <h4>{item.name}</h4>
+                    <p>₹{item.price} / {item.unit}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

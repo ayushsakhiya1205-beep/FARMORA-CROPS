@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Outlet = require('../models/Outlet');
+const Inventory = require('../models/Inventory');
 const Reminder = require('../models/Reminder');
 const { auth, authorize } = require('../middleware/auth');
 const { sendOrderInvoiceEmail } = require('../config/email');
@@ -10,6 +11,69 @@ const { generateOrderInvoiceWithPuppeteer } = require('../utils/puppeteerInvoice
 const { calculateDeliveryFee } = require('../config/deliveryFee');
 
 const router = express.Router();
+
+const normalizeInventoryKey = (value = '') =>
+  value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+const findMatchingInventoryItem = (inventoryItems, orderItem) => {
+  const productObjectId = orderItem.productId?.toString();
+  const normalizedName = normalizeInventoryKey(orderItem.name);
+
+  return inventoryItems.find((inventoryItem) => {
+    const inventoryProductId = inventoryItem.productId?.toString();
+    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
+
+    return (
+      inventoryProductId === productObjectId ||
+      inventoryProductId === normalizedName ||
+      inventoryProductName === normalizedName
+    );
+  });
+};
+
+const validateAndReduceInventory = async (outletId, orderItems) => {
+  const inventoryItems = await Inventory.find({ outletId });
+  const touchedInventory = [];
+
+  for (const orderItem of orderItems) {
+    const inventoryItem = findMatchingInventoryItem(inventoryItems, orderItem);
+
+    if (!inventoryItem) {
+      throw new Error(`Inventory not found for ${orderItem.name} in the selected outlet`);
+    }
+
+    if (inventoryItem.quantity < orderItem.quantity) {
+      throw new Error(
+        `Not enough stock for ${orderItem.name}. Available: ${inventoryItem.quantity}, required: ${orderItem.quantity}`
+      );
+    }
+
+    inventoryItem.quantity -= orderItem.quantity;
+    inventoryItem.lastUpdated = new Date();
+    touchedInventory.push(inventoryItem);
+  }
+
+  for (const inventoryItem of touchedInventory) {
+    await inventoryItem.save();
+  }
+
+  return touchedInventory;
+};
+
+const restoreInventoryQuantities = async (inventoryItems, orderItems) => {
+  for (const orderItem of orderItems) {
+    const inventoryItem = findMatchingInventoryItem(inventoryItems, orderItem);
+    if (inventoryItem) {
+      inventoryItem.quantity += orderItem.quantity;
+      inventoryItem.lastUpdated = new Date();
+      await inventoryItem.save();
+    }
+  }
+};
 
 // Helper function to find outlet based on district matching
 const findOutletByDistrict = async (customerDistrict) => {
@@ -86,6 +150,7 @@ const findOutletByDistrict = async (customerDistrict) => {
 router.post('/', auth, authorize('customer'), async (req, res) => {
   try {
     const { deliveryAddress, paymentMethod = 'cod', notes } = req.body;
+    let adjustedInventoryItems = [];
 
     const cart = await Cart.findOne({ userId: req.user._id });
     if (!cart || cart.items.length === 0) {
@@ -144,6 +209,15 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
 
     console.log('✅ Outlet assigned:', outletId);
 
+    // Validate and reduce inventory for the matched outlet before saving order
+    try {
+      adjustedInventoryItems = await validateAndReduceInventory(outletId, items);
+    } catch (inventoryError) {
+      return res.status(400).json({
+        message: inventoryError.message
+      });
+    }
+
     // Calculate delivery fee
     const deliveryFeeCalculation = calculateDeliveryFee(totalAmount);
     
@@ -168,7 +242,14 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
       orderStatus: 'pending'
     });
 
-    await order.save();
+    try {
+      await order.save();
+    } catch (saveError) {
+      if (adjustedInventoryItems.length > 0) {
+        await restoreInventoryQuantities(adjustedInventoryItems, items);
+      }
+      throw saveError;
+    }
 
     // Clear cart
     cart.items = [];

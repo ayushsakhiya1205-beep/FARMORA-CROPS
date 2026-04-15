@@ -19,7 +19,7 @@ const Products = () => {
     const categoryParam = queryParams.get('category');
     console.log('🔍 URL search params:', location.search);
     console.log('🔍 Category param from URL:', categoryParam);
-    
+
     if (categoryParam && categoryParam.trim() !== '') {
       console.log('🔍 Setting category to:', categoryParam);
       setCategory(categoryParam.trim());
@@ -33,7 +33,7 @@ const Products = () => {
     const timer = setTimeout(() => {
       fetchProducts();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [category, search]);
 
@@ -41,11 +41,11 @@ const Products = () => {
     try {
       setLoading(true);
       const params = {};
-      
+
       // Debug: Log current category state
       console.log('🔍 Current category state:', category);
       console.log('🔍 Current search state:', search);
-      
+
       if (category && category.trim() !== '') {
         params.category = category.trim();
         console.log('🔍 Setting category filter:', category);
@@ -54,11 +54,11 @@ const Products = () => {
         params.search = search.trim();
         console.log('🔍 Setting search filter:', search);
       }
-      
+
       console.log('🔄 Fetching products with params:', params);
       console.log('🌐 API URL:', `${API_URL}/api/products`);
       console.log('📡 Full request URL:', `${API_URL}/api/products?${new URLSearchParams(params).toString()}`);
-      
+
       const res = await axios.get(`${API_URL}/api/products`, { params });
       console.log('✅ Raw response:', res.data);
       console.log('✅ Products length:', res.data.length);
@@ -75,9 +75,9 @@ const Products = () => {
   const handleAddToCart = async (e, productId) => {
     e.stopPropagation(); // Prevent navigation to product detail
     e.preventDefault(); // Prevent Link navigation
-    
+
     setCartLoading(prev => ({ ...prev, [productId]: true }));
-    
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -98,7 +98,7 @@ const Products = () => {
 
       // Show success feedback
       alert('✅ Product added to cart successfully!');
-      
+
       // Optionally update UI state to show cart updated
       // You could add a cart count state here if needed
     } catch (error) {
@@ -106,7 +106,7 @@ const Products = () => {
       console.error('❌ Error Response:', error.response?.data);
       console.error('❌ Error Status:', error.response?.status);
       console.error('❌ Error Message:', error.message);
-      
+
       const errorMessage = error.response?.data?.message || error.message || 'Failed to add to cart';
       alert(`❌ ${errorMessage}`);
     } finally {

@@ -68,11 +68,11 @@ const Login = () => {
   useEffect(() => {
     const savedEmails = localStorage.getItem('loginEmails');
     const savedLoginHistory = localStorage.getItem('loginHistory');
-    
+
     if (savedEmails) {
       setEmailSuggestions(JSON.parse(savedEmails));
     }
-    
+
     if (savedLoginHistory) {
       setLoginHistory(JSON.parse(savedLoginHistory));
     }
@@ -85,24 +85,24 @@ const Login = () => {
     // Save email history
     const currentEmails = [...emailSuggestions];
     const emailIndex = currentEmails.indexOf(email);
-    
+
     if (emailIndex > -1) {
       currentEmails.splice(emailIndex, 1);
     }
-    
+
     currentEmails.unshift(email);
     const updatedEmails = currentEmails.slice(0, 5);
     setEmailSuggestions(updatedEmails);
     localStorage.setItem('loginEmails', JSON.stringify(updatedEmails));
-    
+
     // Save login history (email + password)
     const currentLoginHistory = [...loginHistory];
     const loginIndex = currentLoginHistory.findIndex(item => item.email === email);
-    
+
     if (loginIndex > -1) {
       currentLoginHistory.splice(loginIndex, 1);
     }
-    
+
     currentLoginHistory.unshift({ email, password });
     const updatedLoginHistory = currentLoginHistory.slice(0, 3); // Keep only last 3 login attempts
     setLoginHistory(updatedLoginHistory);
@@ -119,12 +119,12 @@ const Login = () => {
       email: value,
       password: '' // Clear password when email changes
     });
-    
+
     // Show suggestions if email is empty or partially matches
     if (value.length === 0 || value.length < 3) {
       setShowSuggestions(false);
     } else {
-      const filtered = emailSuggestions.filter(email => 
+      const filtered = emailSuggestions.filter(email =>
         email.toLowerCase().includes(value.toLowerCase())
       );
       setShowSuggestions(filtered.length > 0);
@@ -170,13 +170,13 @@ const Login = () => {
 
     setLoading(true);
 
-    
+
 
     try {
 
       console.log('Requesting OTP for:', formData.email);
 
-      
+
 
       const response = await fetch('http://localhost:8000/api/auth/request-login-otp', {
 
@@ -188,23 +188,23 @@ const Login = () => {
 
         },
 
-        body: JSON.stringify({ 
+        body: JSON.stringify({
 
-          email: formData.email, 
+          email: formData.email,
 
-          password: formData.password 
+          password: formData.password
 
         }),
 
       });
 
-      
+
 
       const data = await response.json();
 
       console.log('OTP request response:', data);
 
-      
+
 
       if (data.success) {
 
@@ -234,7 +234,7 @@ const Login = () => {
 
     }
 
-    
+
 
     setLoading(false);
 
@@ -252,13 +252,13 @@ const Login = () => {
 
     setLoading(true);
 
-    
+
 
     try {
 
       console.log('Verifying OTP for:', formData.email);
 
-      
+
 
       const response = await fetch('http://localhost:8000/api/auth/verify-otp', {
 
@@ -270,43 +270,43 @@ const Login = () => {
 
         },
 
-        body: JSON.stringify({ 
+        body: JSON.stringify({
 
-          email: formData.email, 
+          email: formData.email,
 
-          otp: formData.otp 
+          otp: formData.otp
 
         }),
 
       });
 
-      
+
 
       const data = await response.json();
 
       console.log('OTP verification response:', data);
 
-      
+
 
       if (data.success) {
         // Save login credentials to history
         saveLoginToHistory(formData.email, formData.password);
-        
+
         // Store authentication data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('userType', data.userType);
-        
+
         // Set cookie for backend
-        document.cookie = `token=${data.token}; path=/; max-age=${7*24*60*60}`;
-        
+        document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+
         console.log('✅ Login successful, refreshing auth state...');
         console.log('User Type:', data.userType);
         console.log('User Data:', data.user);
-        
+
         // Refresh auth state immediately
         const authRefreshed = refreshAuthState();
-        
+
         if (authRefreshed) {
           console.log('✅ Auth state refreshed, navigating to dashboard...');
           // Navigate based on user type using navigate function
@@ -344,7 +344,7 @@ const Login = () => {
 
     }
 
-    
+
 
     setLoading(false);
 
@@ -386,9 +386,9 @@ const Login = () => {
 
         <h1>Login to Farmora Crops</h1>
 
-        
 
-        <div className="login-info">
+
+        {/* <div className="login-info">
 
           <div className="login-type-info">
 
@@ -406,7 +406,7 @@ const Login = () => {
 
           </div>
 
-        </div>
+        </div> */}
 
 
 
@@ -449,8 +449,8 @@ const Login = () => {
                 {showSuggestions && (
                   <div className="email-suggestions">
                     {emailSuggestions
-                      .filter(email => 
-                        formData.email.length === 0 || 
+                      .filter(email =>
+                        formData.email.length === 0 ||
                         email.toLowerCase().includes(formData.email.toLowerCase())
                       )
                       .map((email, index) => {
@@ -464,7 +464,7 @@ const Login = () => {
                             <div className="suggestion-email">{email}</div>
                             {hasPassword && (
                               <div className="suggestion-indicator">
-                                <span className="indicator-icon">🔑</span>
+                                <span className="indicator-icon"></span>
                                 <span className="indicator-text">Password saved</span>
                               </div>
                             )}
@@ -516,7 +516,7 @@ const Login = () => {
 
             {error && <div className="error-message">{error}</div>}
 
-            
+
 
             {otpSent && (
 
@@ -528,7 +528,7 @@ const Login = () => {
 
                 {generatedOTP && otpEmail && otpEmail.includes('@farmora.in') && (
 
-                  <p style={{color: '#666', fontSize: '12px'}}>
+                  <p style={{ color: '#666', fontSize: '12px' }}>
 
                     Development: OTP is <strong>{generatedOTP}</strong>
 
@@ -540,7 +540,7 @@ const Login = () => {
 
             )}
 
-            
+
 
             <div className="form-group">
 
@@ -570,7 +570,7 @@ const Login = () => {
 
             </div>
 
-            
+
 
             <div className="otp-buttons">
 
@@ -580,7 +580,7 @@ const Login = () => {
 
               </button>
 
-              
+
 
               <button type="button" className="btn btn-secondary" onClick={resetOTPFlow}>
 
@@ -590,7 +590,7 @@ const Login = () => {
 
             </div>
 
-            
+
 
             <div className="resend-otp">
 
@@ -602,7 +602,7 @@ const Login = () => {
 
         )}
 
-        
+
 
         <p className="auth-link">
 

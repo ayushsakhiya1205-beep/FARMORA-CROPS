@@ -248,7 +248,7 @@
 }
 
 .location-btn {
-  background-color: #17a2b8;
+  background-color: #114714;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -260,7 +260,7 @@
 }
 
 .location-btn:hover:not(:disabled) {
-  background-color: #138496;
+  background-color: #1a5e1f;
 }
 
 .location-btn:disabled {

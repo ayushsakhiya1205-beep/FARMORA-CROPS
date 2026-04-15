@@ -1,4 +1,4 @@
-.App {
+ .App {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -18,17 +18,18 @@
   font-weight: 500;
   transition: all 0.3s ease;
   display: inline-block;
+  background-color: #114714;
 }
 
 .btn-primary {
-  background-color: #114714;
-  color: white;
+  background-color: #114714 !important;
+  border-color: #114714 !important;
 }
 
 .btn-primary:hover {
   background-color: #1a5e1f;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn-secondary {
@@ -58,7 +59,7 @@
   background: white;
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
 }
 
@@ -120,4 +121,3 @@
     gap: 15px;
   }
 }
-
