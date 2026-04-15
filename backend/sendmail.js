@@ -67,7 +67,7 @@ const sendMail = async ({ to, subject, text, html, attachments }) => {
         
         // Provide specific error messages (but don't throw)
         if (error.code === 'EAUTH') {
-          console.error('❌ Gmail authentication failed - check EMAIL_USER and EMAIL_PASS');
+          console.error('❌ BREvo authentication failed - check EMAIL_USER and BREVO_API_KEY');
         } else if (error.code === 'ECONNECTION') {
           console.error('❌ Connection failed - check internet connection');
         } else if (error.code === 'EMESSAGE') {
@@ -156,7 +156,7 @@ const testEmailConfig = async () => {
     await mailTransporter.verify();
     
     console.log('✅ Email server is ready to send messages');
-    console.log(`📧 Using Gmail account: ${process.env.EMAIL_USER}`);
+    console.log(`📧 Using BREVO ACCOUNT account: ${process.env.EMAIL_USER}`);
     return true;
   } catch (error) {
     console.error('❌ Email configuration error:', error);

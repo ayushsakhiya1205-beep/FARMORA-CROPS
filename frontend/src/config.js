@@ -1,5 +1,5 @@
 // Backend API URL
-export const API_URL = 'http://localhost:8000';
+export const API_URL = "https://farmora-crops.onrender.com";
 
 // Helper function to get full image URL
 export const getImageUrl = (imagePath) => {
