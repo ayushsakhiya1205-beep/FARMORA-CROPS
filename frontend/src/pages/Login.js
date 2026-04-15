@@ -174,30 +174,21 @@ const Login = () => {
 
     try {
 
-      console.log('Requesting OTP for:', formData.email);
-
-
-
-      const response = await fetch('http://localhost:8000/api/auth/request-login-otp', {
-
-        method: 'POST',
-
-        headers: {
-
-          'Content-Type': 'application/json',
-
-        },
-
-        body: JSON.stringify({
-
-          email: formData.email,
-
-          password: formData.password
-
-        }),
-
-      });
-
+      
+const response = await fetch(
+  'https://farmora-crops.onrender.com/api/auth/request-login-otp',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      email: formData.email,
+      password: formData.password,
+    }),
+  }
+);
 
 
       const data = await response.json();
