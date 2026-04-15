@@ -8,44 +8,26 @@ let transporter = null;
 
 const createTransporter = () => {
   if (!transporter) {
-    console.log('📧 Creating Gmail SMTP transporter...');
+    console.log('📧 Creating Brevo SMTP transporter...');
     
-    // Validate environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('❌ Gmail credentials not found in environment variables');
-      console.log('Required: EMAIL_USER and EMAIL_PASS in .env file');
-      throw new Error('Gmail credentials not configured');
+    if (!process.env.EMAIL_USER || !process.env.BREVO_API_KEY) {
+      console.error('❌ Brevo credentials not found');
+      throw new Error('Brevo credentials not configured');
     }
-    
+
     transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: 'smtp-relay.brevo.com',
+      port: 587,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      pool: true, // Use connection pooling
-      maxConnections: 2, // Reduced from 5
-      maxMessages: 50,  // Reduced from 100
-      rateDelta: 2000,  // Increased from 1000
-      rateLimit: 3,    // Reduced from 5
-      // Additional connection settings for better reliability
-      tls: {
-        rejectUnauthorized: false
-      },
-      connectionTimeout: 60000, // 60 seconds
-      greetingTimeout: 30000,   // 30 seconds
-      socketTimeout: 60000,      // 60 seconds
-      // Retry settings
-      maxRetries: 3,
-      retryDelay: 2000 // 2 seconds between retries
+        user: process.env.EMAIL_USER,       // Brevo email
+        pass: process.env.BREVO_API_KEY     // Brevo API key
+      }
     });
-    
-    console.log('✅ Gmail transporter created successfully');
-    console.log(`📧 Using email: ${process.env.EMAIL_USER}`);
+
+    console.log('✅ Brevo transporter created successfully');
   }
   return transporter;
 };
-
 const sendMail = async ({ to, subject, text, html, attachments }) => {
   let retries = 0;
   const maxRetries = 3;
