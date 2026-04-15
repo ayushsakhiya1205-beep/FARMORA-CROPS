@@ -28,125 +28,42 @@ const createTransporter = () => {
   }
   return transporter;
 };
-const sendMail = async ({ to, subject, text, html, attachments }) => {
-  let retries = 0;
-  const maxRetries = 3;
-  const retryDelay = 2000; // 2 seconds
-  
-  while (retries < maxRetries) {
-    try {
-      const mailTransporter = createTransporter();
-      
-      console.log(`📧 Sending email to: ${to}`);
-      console.log(`📋 Subject: ${subject}`);
-      
-      const mailOptions = {
-        from: `"Farmora Crops" <${process.env.EMAIL_USER}>`,
-        to,
-        subject,
-        text,
-        html,
-        attachments,
-      };
+const axios = require("axios");
 
-      const info = await mailTransporter.sendMail(mailOptions);
-      console.log('✅ Email sent successfully!');
-      console.log(`📧 Message ID: ${info.messageId}`);
-      console.log(`📨 Sent to: ${to}`);
-      return { success: true, messageId: info.messageId };
-      
-    } catch (error) {
-      retries++;
-      console.error(`❌ Email sending attempt ${retries} failed:`, error.message);
-      
-      if (retries < maxRetries) {
-        console.log(`� Retrying in ${retryDelay/1000} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      } else {
-        console.error('❌ All retries exhausted');
-        
-        // Provide specific error messages (but don't throw)
-        if (error.code === 'EAUTH') {
-          console.error('❌ BREvo authentication failed - check EMAIL_USER and BREVO_API_KEY');
-        } else if (error.code === 'ECONNECTION') {
-          console.error('❌ Connection failed - check internet connection');
-        } else if (error.code === 'EMESSAGE') {
-          console.error('❌ Message rejected - check recipient email');
-        } else if (error.code === 'ECONNRESET') {
-          console.error('❌ Connection reset - Gmail connection issue');
-        } else {
-          console.error('❌ Unknown email error:', error.message);
-        }
-        
-        return { 
-          success: false, 
-          error: error.message,
-          code: error.code || 'UNKNOWN',
-          retries: retries
-        };
-      }
-    }
-  }
-};
-
-const sendOrderInvoiceEmail = async ({ to, subject, text, html, attachments }) => {
+const sendMail = async ({ to, subject, html }) => {
   try {
-    const mailTransporter = createTransporter();
-    
-    console.log(`📧 Sending order invoice email to: ${to}`);
-    console.log(`📋 Subject: ${subject}`);
-    
-    const mailOptions = {
-      from: `"Farmora Crops" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text,
-      html,
-      attachments,
-    };
+    console.log("📧 Sending email to:", to);
+    console.log("API KEY:", process.env.BREVO_API_KEY); // debug
 
-    const info = await mailTransporter.sendMail(mailOptions);
-    console.log('✅ Order invoice email sent successfully!');
-    console.log(`📧 Message ID: ${info.messageId}`);
-    console.log(`📨 Sent to: ${to}`);
-    
-    // Clean up temporary PDF files after sending
-    if (attachments && attachments.length > 0) {
-      attachments.forEach(attachment => {
-        if (attachment.path && fs.existsSync(attachment.path)) {
-          try {
-            fs.unlinkSync(attachment.path);
-            console.log(`🗑️ Cleaned up temporary file: ${attachment.path}`);
-          } catch (cleanupError) {
-            console.error(`⚠️ Failed to cleanup file ${attachment.path}:`, cleanupError);
-          }
-        }
-      });
-    }
-    
-    return { success: true, messageId: info.messageId };
-    
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          name: "Farmora Crops",
+          email: process.env.EMAIL_USER,
+        },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: html,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Email sent via Brevo");
+    return { success: true };
+
   } catch (error) {
-    console.error('❌ Error sending order invoice email:', error);
-    console.error('📧 Email details:', { to, subject });
-    
-    // Provide specific error messages
-    if (error.code === 'EAUTH') {
-      console.error('❌ Gmail authentication failed - check EMAIL_USER and EMAIL_PASS');
-      throw new Error('Gmail authentication failed. Please check email credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('❌ Connection failed - check internet connection');
-      throw new Error('Failed to connect to email server. Please check internet connection.');
-    } else if (error.code === 'EMESSAGE') {
-      console.error('❌ Message rejected - check recipient email');
-      throw new Error('Email address is invalid or rejected.');
-    } else {
-      console.error('❌ Unknown email error:', error.message);
-      throw new Error(`Failed to send email: ${error.message}`);
-    }
+    console.error("❌ Email error:", error.response?.data || error.message);
+    return { success: false };
   }
 };
 
+module.exports = { sendMail };
 // Test email configuration
 const testEmailConfig = async () => {
   try {
