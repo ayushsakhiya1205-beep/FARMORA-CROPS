@@ -482,6 +482,10 @@
     align-items: flex-start;
   }
   
+  .orders-header h1 {
+    font-size: 28px;
+  }
+  
   .order-header {
     flex-direction: column;
     gap: 15px;

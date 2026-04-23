@@ -135,6 +135,7 @@
 @media(max-width:900px){
   .stats-strip{
     padding:40px 15px;
+    gap:30px;
   }
 
   .pill{

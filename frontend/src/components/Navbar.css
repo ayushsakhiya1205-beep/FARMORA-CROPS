@@ -140,6 +140,7 @@
   .navbar-links {
     flex-wrap: wrap;
     justify-content: center;
+    gap: 10px;
   }
   
   .navbar-logo {

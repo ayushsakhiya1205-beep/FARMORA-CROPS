@@ -620,12 +620,14 @@
 
   .dashboard-tabs {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 5px;
   }
 
   .dashboard-tab {
-    min-width: 0;
+    flex: 0 0 auto;
   }
 
   .order-header,
