@@ -6,6 +6,7 @@
   padding: 15px 0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   position: relative;
+  z-index: 100;
 }
 
 .navbar::before {
@@ -132,30 +133,75 @@
 
 
 @media (max-width: 768px) {
+  .navbar {
+    padding: 8px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
   .navbar-content {
-    flex-direction: column;
-    gap: 15px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
   }
   
+  .navbar-brand {
+    gap: 10px;
+  }
+
   .navbar-links {
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
+    width: 100%;
   }
   
-  .navbar-logo {
-    height: 60px;
-    width: 60px;
-    object-fit: cover;
-    border-radius: 50%;
-    background-color: #0b3d2e; 
+  .navbar-links a {
+    padding: 6px 10px;
+    font-size: 14px;
   }
+
+  .navbar-logo {
+    height: 45px;
+    width: 45px;
+  }
+
   .brand-name {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .brand-sub {
+    font-size: 13px;
+  }
+
+  .user-name {
+    margin-right: 5px;
     font-size: 14px;
+  }
+
+  .btn-logout {
+    padding: 6px 12px;
+    font-size: 13px;
   }
 }
 
+@media (max-width: 480px) {
+  .navbar-links {
+    gap: 6px;
+  }
+
+  .navbar-links a {
+    font-size: 13px;
+    padding: 5px 8px;
+  }
+
+  .brand-name {
+    font-size: 18px;
+  }
+
+  .brand-sub {
+    font-size: 12px;
+  }
+}

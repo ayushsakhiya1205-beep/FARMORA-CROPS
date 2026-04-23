@@ -50,3 +50,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 768px) {
+  .hover-video-section {
+    padding: 40px 12px;
+  }
+
+  .video-card video {
+    height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hover-video-section {
+    padding: 30px 10px;
+  }
+
+  .video-card video {
+    height: 180px;
+  }
+}

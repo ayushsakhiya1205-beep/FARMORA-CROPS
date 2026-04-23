@@ -106,3 +106,91 @@
   background: #ccc;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .products-page {
+    padding: 15px 12px;
+  }
+
+  .products-page h1 {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+
+  .filters {
+    gap: 12px;
+    margin-bottom: 15px;
+  }
+
+  .search-box input {
+    max-width: 100%;
+    padding: 10px 16px;
+    font-size: 14px;
+    border-radius: 20px;
+  }
+
+  .category-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 6px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .category-filters::-webkit-scrollbar {
+    height: 3px;
+  }
+
+  .category-filters::-webkit-scrollbar-thumb {
+    background: #114714;
+    border-radius: 3px;
+  }
+
+  .category-filters button {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+    border-radius: 20px;
+  }
+
+  /* Override the global .grid horizontal scroll for products page — use 2-col grid instead */
+  .products-page .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    overflow-x: visible;
+  }
+
+  .products-page .grid > * {
+    flex: unset;
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .btn-add-to-cart {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 40px;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .products-page h1 {
+    font-size: 20px;
+  }
+
+  .category-filters button {
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+}
