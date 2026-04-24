@@ -247,13 +247,14 @@
     }
 
     .footer-grid {
-      grid-template-columns: 1fr;
-      gap: 24px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px 16px;
       text-align: center;
     }
 
+    /* About spans full width */
     .footer-about {
-      grid-column: 1;
+      grid-column: 1 / -1;
     }
 
     .footer-about .footer-logo {
@@ -271,6 +272,7 @@
       margin-bottom: 10px;
     }
 
+    /* Crop Solutions & Farmora stay side by side (each takes 1 column) */
     .footer-links {
       display: flex;
       flex-direction: column;
@@ -282,12 +284,14 @@
     }
 
     .footer-links a {
-      font-size: 13.5px;
-      padding: 4px 8px;
+      font-size: 13px;
+      padding: 3px 6px;
       display: inline-block;
     }
 
+    /* Contact spans full width */
     .footer-contact {
+      grid-column: 1 / -1;
       text-align: center;
     }
 
