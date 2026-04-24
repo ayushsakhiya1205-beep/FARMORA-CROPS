@@ -22,11 +22,11 @@ const Footer = () => {
           <div className="footer-col">
             <h3 className="footer-title">Crop Solutions</h3>
             <ul className="footer-links">
-              <li><a href="/products?category=grain">Grain Essentials</a></li>
-              <li><a href="/products?category=pulse">Pulses &amp; Lentils</a></li>
-              <li><a href="/products?category=oil">Cold-Pressed Oils</a></li>
-              <li><a href="/products?category=masala">Spices &amp; Masala</a></li>
-              <li><a href="/products?category=other">Other Organics</a></li>
+              <li><a href="/products?category=grain">Grain</a></li>
+              <li><a href="/products?category=pulse">Pulses </a></li>
+              <li><a href="/products?category=oil">Oils</a></li>
+              <li><a href="/products?category=masala">Masala</a></li>
+              <li><a href="/products?category=other">Other organic</a></li>
             </ul>
           </div>
 
