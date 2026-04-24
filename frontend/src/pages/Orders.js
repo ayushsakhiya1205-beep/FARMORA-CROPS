@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
-import { API_URL } from '../config';
+import { API_URL, getImageUrl } from '../config';
 import './Orders.css';
 
 const Orders = () => {
@@ -336,9 +336,20 @@ const Orders = () => {
                 <div className="order-items">
                   {order.items.map((item, index) => (
                     <div key={index} className="order-item">
-                      <span>{item.name}</span>
-                      <span>{item.quantity} {item.unit}</span>
-                      <span>₹{item.price * item.quantity}</span>
+                      <div className="order-item-image">
+                        {item.image ? (
+                          <img src={getImageUrl(item.image)} alt={item.name} />
+                        ) : (
+                          <div className="order-item-placeholder">🌾</div>
+                        )}
+                      </div>
+                      <div className="order-item-info">
+                        <span className="order-item-name">{item.name}</span>
+                        <div className="order-item-meta">
+                          <span className="order-item-qty">{item.quantity} {item.unit}</span>
+                          <span className="order-item-price">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
