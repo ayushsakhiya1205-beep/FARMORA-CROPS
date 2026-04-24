@@ -398,21 +398,21 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #4285f4, #34a853);
-  color: white;
+  background: linear-gradient(135deg, #0b3d1b, #114714);
+  color: #f0c040;
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(66, 133, 244, 0.2);
+  box-shadow: 0 2px 4px rgba(11, 61, 27, 0.3);
 }
 
 .btn-location:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3367d6, #2d8f47);
+  background: linear-gradient(135deg, #114714, #1a5e1f);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
+  box-shadow: 0 4px 8px rgba(11, 61, 27, 0.4);
 }
 
 .btn-location:disabled {
@@ -1006,22 +1006,22 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-  color: white;
+  background: linear-gradient(135deg, #114714, #1a5e1f);
+  color: #f0c040;
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
+  box-shadow: 0 2px 4px rgba(17, 71, 20, 0.3);
   margin-top: 10px;
 }
 
 .btn-map:hover {
-  background: linear-gradient(135deg, #ff5252, #d63031);
+  background: linear-gradient(135deg, #1a5e1f, #228B22);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 4px 8px rgba(17, 71, 20, 0.4);
 }
 
 .map-icon {
