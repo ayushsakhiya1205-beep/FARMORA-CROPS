@@ -1065,19 +1065,12 @@ const Cart = () => {
         if (paymentMethod === 'cod') {
           // COD: Order is complete, redirect to success
           console.log('✅ COD Order placed successfully');
-          
-          // Update user's default address with the delivery address used
-          await updateDefaultAddress(deliveryAddress);
 
           // Clear cart after successful order
           setCart({ items: [], totalAmount: 0 });
           
-          // Show success message immediately before navigation
-          console.log('🔍 DEBUG: About to show success message');
-          alert('Order placed successfully! Invoice has been sent to your email.');
-          console.log('🔍 DEBUG: Success message shown, navigating to orders');
-          
-          // Navigate to orders page after showing message
+          // Show success message and navigate
+          alert('Order placed successfully! Invoice will be sent to your email shortly.');
           navigate('/orders');
           
         } else if (paymentMethod === 'razorpay') {
