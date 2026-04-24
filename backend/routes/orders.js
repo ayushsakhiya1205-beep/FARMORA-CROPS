@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
@@ -46,14 +46,37 @@ const validateAndReduceInventory = async (outletId, orderItems) => {
       throw new Error(`Inventory not found for ${orderItem.name} in the selected outlet`);
     }
 
-    if (inventoryItem.quantity < orderItem.quantity) {
+    // Ensure both quantities are valid numbers to prevent NaN
+    const currentStock = Number(inventoryItem.quantity) || 0;
+    const requiredQty = Number(orderItem.quantity);
+
+    if (Number.isNaN(requiredQty) || requiredQty <= 0) {
+      throw new Error(`Invalid quantity for ${orderItem.name}`);
+    }
+
+    if (currentStock < requiredQty) {
       throw new Error(
-        `Not enough stock for ${orderItem.name}. Available: ${inventoryItem.quantity}, required: ${orderItem.quantity}`
+        `Not enough stock for ${orderItem.name}. Available: ${currentStock}, required: ${requiredQty}`
       );
     }
 
-    inventoryItem.quantity -= orderItem.quantity;
+    inventoryItem.quantity = currentStock - requiredQty;
     inventoryItem.lastUpdated = new Date();
+
+    // Fill in any missing required fields to prevent Mongoose validation errors
+    if (!inventoryItem.productName) {
+      inventoryItem.productName = orderItem.name || 'Unknown Product';
+    }
+    if (!inventoryItem.category) {
+      // Try to look up from product catalog
+      try {
+        const product = await Product.findById(orderItem.productId);
+        inventoryItem.category = product?.category || 'others';
+      } catch {
+        inventoryItem.category = 'others';
+      }
+    }
+
     touchedInventory.push(inventoryItem);
   }
 
@@ -214,8 +237,9 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
     try {
       adjustedInventoryItems = await validateAndReduceInventory(outletId, items);
     } catch (inventoryError) {
+      console.error('❌ Inventory validation error:', inventoryError.message);
       return res.status(400).json({
-        message: inventoryError.message
+        message: `Inventory issue: ${inventoryError.message}`
       });
     }
 

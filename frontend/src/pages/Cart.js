@@ -12,7 +12,7 @@ const Cart = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [cart, setCart] = useState({ items: [], totalAmount: 0 });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [orderPlacing, setOrderPlacing] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [quantityAnimations, setQuantityAnimations] = useState(new Map());
@@ -81,9 +81,12 @@ const Cart = () => {
 
   useEffect(() => {
     if (user) {
-      // Fast initial load - show cart immediately
-      setInitialLoad(false);
-      fetchCart();
+      // Start fetching cart data - keep loading state until fetch completes
+      fetchCart().then(() => {
+        setInitialLoad(false);
+      }).catch(() => {
+        setInitialLoad(false);
+      });
       // Populate delivery address from user data
       setDeliveryAddress({
         houseNo: user.houseNo || '',
@@ -1101,8 +1104,37 @@ const Cart = () => {
     }
   };
 
-  if (initialLoad) {
-    return <div className="loading">Loading cart...</div>;
+  if (initialLoad || loading) {
+    return (
+      <div className="cart-page">
+        <div className="container">
+          <h1>Shopping Cart</h1>
+          <div className="cart-loading-skeleton">
+            <div className="skeleton-item">
+              <div className="skeleton-image pulse"></div>
+              <div className="skeleton-details">
+                <div className="skeleton-line skeleton-title pulse"></div>
+                <div className="skeleton-line skeleton-price pulse"></div>
+              </div>
+            </div>
+            <div className="skeleton-item">
+              <div className="skeleton-image pulse"></div>
+              <div className="skeleton-details">
+                <div className="skeleton-line skeleton-title pulse"></div>
+                <div className="skeleton-line skeleton-price pulse"></div>
+              </div>
+            </div>
+            <div className="skeleton-item">
+              <div className="skeleton-image pulse"></div>
+              <div className="skeleton-details">
+                <div className="skeleton-line skeleton-title pulse"></div>
+                <div className="skeleton-line skeleton-price pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
