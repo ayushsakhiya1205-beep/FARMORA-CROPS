@@ -22,37 +22,63 @@ const normalizeInventoryKey = (value = '') =>
 const findMatchingInventoryItem = (inventoryItems, orderItem) => {
   const productObjectId = orderItem.productId?.toString();
   const normalizedName = normalizeInventoryKey(orderItem.name);
+  const allMatches = [];
 
-  // Pass 1: Exact productId match (most reliable)
   for (const inventoryItem of inventoryItems) {
     const inventoryProductId = inventoryItem.productId?.toString();
+    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
+
+    let matchType = null;
+
+    // Check exact productId match (most reliable)
     if (inventoryProductId && productObjectId && inventoryProductId === productObjectId) {
-      return inventoryItem;
+      matchType = 'productId';
     }
-  }
-
-  // Pass 2: Exact normalized name match
-  for (const inventoryItem of inventoryItems) {
-    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
-    if (normalizedName && inventoryProductName === normalizedName) {
-      return inventoryItem;
+    // Check exact normalized name match
+    else if (normalizedName && inventoryProductName === normalizedName) {
+      matchType = 'exactName';
     }
-  }
-
-  // Pass 3: Partial name match (handles "Jaggery (Gud)" vs "jaggery" etc.)
-  for (const inventoryItem of inventoryItems) {
-    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
-    if (normalizedName && inventoryProductName &&
+    // Check partial name match (handles "Jaggery (Gud)" vs "jaggery" etc.)
+    else if (normalizedName && inventoryProductName &&
         (inventoryProductName.includes(normalizedName) || normalizedName.includes(inventoryProductName))) {
-      return inventoryItem;
+      matchType = 'partialName';
+    }
+
+    if (matchType) {
+      allMatches.push({ inventoryItem, matchType, qty: Number(inventoryItem.quantity) || 0 });
     }
   }
 
-  return null;
+  if (allMatches.length === 0) return null;
+
+  // If multiple matches found (duplicates), log them and pick the one with most stock
+  if (allMatches.length > 1) {
+    console.log(`⚠️ Found ${allMatches.length} duplicate inventory entries for "${orderItem.name}":`);
+    allMatches.forEach((m, i) => {
+      console.log(`   [${i}] ${m.inventoryItem.productName} (ID: ${m.inventoryItem.productId}) qty=${m.qty} match=${m.matchType}`);
+    });
+  }
+
+  // Prioritize: productId matches first, then by highest quantity
+  allMatches.sort((a, b) => {
+    // productId matches are most reliable
+    if (a.matchType === 'productId' && b.matchType !== 'productId') return -1;
+    if (b.matchType === 'productId' && a.matchType !== 'productId') return 1;
+    // Then by quantity (highest first)
+    return b.qty - a.qty;
+  });
+
+  const best = allMatches[0];
+  if (allMatches.length > 1) {
+    console.log(`✅ Selected best match: "${best.inventoryItem.productName}" qty=${best.qty} (${best.matchType})`);
+  }
+
+  return best.inventoryItem;
 };
 
+
 const validateAndReduceInventory = async (outletId, orderItems, outletName = 'Unknown') => {
-  const inventoryItems = await Inventory.find({ outletId });
+  let inventoryItems = await Inventory.find({ outletId });
 
   console.log(`📦 Inventory check for outlet "${outletName}" (${outletId}):`);
   console.log(`📦 Total inventory items found: ${inventoryItems.length}`);
@@ -68,6 +94,81 @@ const validateAndReduceInventory = async (outletId, orderItems, outletName = 'Un
       });
     }
     throw new Error(`No inventory configured for outlet "${outletName}". Please ask the outlet manager to set up inventory first.`);
+  }
+
+  // --- DEDUP: Clean up duplicate inventory entries ---
+  // Group by productId AND by normalized name to catch all duplicates
+  const productGroups = new Map();
+  for (const item of inventoryItems) {
+    // Primary grouping by productId
+    const key = item.productId?.toString();
+    if (!productGroups.has(key)) {
+      productGroups.set(key, []);
+    }
+    productGroups.get(key).push(item);
+  }
+
+  // Also check for name-based duplicates (old entries might use name as productId)
+  const nameGroups = new Map();
+  for (const item of inventoryItems) {
+    const nameKey = normalizeInventoryKey(item.productName);
+    if (!nameGroups.has(nameKey)) {
+      nameGroups.set(nameKey, []);
+    }
+    nameGroups.get(nameKey).push(item);
+  }
+
+  // Merge both groupings to find all duplicates
+  const allGroups = new Map();
+  const processed = new Set();
+  
+  // Process name-based groups (catches cross-productId duplicates)
+  for (const [nameKey, group] of nameGroups) {
+    if (group.length > 1) {
+      const groupKey = `name:${nameKey}`;
+      allGroups.set(groupKey, group);
+      group.forEach(item => processed.add(item._id.toString()));
+    }
+  }
+  
+  // Process productId-based groups (only if not already handled by name grouping)
+  for (const [productId, group] of productGroups) {
+    if (group.length > 1) {
+      const alreadyProcessed = group.every(item => processed.has(item._id.toString()));
+      if (!alreadyProcessed) {
+        allGroups.set(`id:${productId}`, group);
+      }
+    }
+  }
+
+  // For any product with duplicates, keep the one with highest quantity and delete the rest
+  const idsToRemove = new Set();
+  const idsToKeep = new Set();
+  
+  for (const [groupKey, group] of allGroups) {
+    console.log(`🔧 Found ${group.length} duplicate entries (${groupKey}):`);
+    // Sort by quantity descending - keep the first (highest stock)
+    group.sort((a, b) => (Number(b.quantity) || 0) - (Number(a.quantity) || 0));
+    const keeper = group[0];
+    idsToKeep.add(keeper._id.toString());
+    console.log(`   ✅ Keeping: "${keeper.productName}" qty=${keeper.quantity} (ID: ${keeper._id})`);
+    for (let i = 1; i < group.length; i++) {
+      const itemId = group[i]._id.toString();
+      if (!idsToKeep.has(itemId)) {
+        console.log(`   🗑️ Removing: "${group[i].productName}" qty=${group[i].quantity} (ID: ${group[i]._id})`);
+        idsToRemove.add(group[i]._id);
+      }
+    }
+  }
+
+  // Delete stale duplicates
+  if (idsToRemove.size > 0) {
+    const removeIds = Array.from(idsToRemove);
+    console.log(`🔧 Cleaning up ${removeIds.length} duplicate inventory entries...`);
+    await Inventory.deleteMany({ _id: { $in: removeIds } });
+    // Re-fetch clean inventory after cleanup
+    inventoryItems = await Inventory.find({ outletId });
+    console.log(`✅ Cleanup complete. ${inventoryItems.length} items remaining.`);
   }
 
   // Log available inventory for debugging

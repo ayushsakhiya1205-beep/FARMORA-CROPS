@@ -46,8 +46,8 @@ const inventorySchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
+// Unique index ensures no duplicate inventory for same outlet+product
+inventorySchema.index({ outletId: 1, productId: 1 }, { unique: true });
 inventorySchema.index({ outletId: 1, category: 1 });
-inventorySchema.index({ outletId: 1, productId: 1 });
 
 module.exports = mongoose.model('Inventory', inventorySchema);
