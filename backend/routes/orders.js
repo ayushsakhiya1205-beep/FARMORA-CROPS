@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
@@ -80,16 +80,16 @@ const findOutletByDistrict = async (customerDistrict) => {
   try {
     const outlets = await Outlet.find({ isActive: true });
     
-    console.log('🔍 Finding outlet for district:', customerDistrict);
-    console.log('🔍 Available outlets:', outlets.length);
+    console.log('ðŸ” Finding outlet for district:', customerDistrict);
+    console.log('ðŸ” Available outlets:', outlets.length);
     
     if (outlets.length === 0) {
-      console.log('❌ No active outlets found');
+      console.log('âŒ No active outlets found');
       return null;
     }
 
     // Log all available outlet districts for debugging
-    console.log('🔍 Available outlet districts:');
+    console.log('ðŸ” Available outlet districts:');
     outlets.forEach(outlet => {
       console.log(`  - ${outlet.name}: ${outlet.address?.district} (${outlet.address?.state})`);
     });
@@ -101,18 +101,18 @@ const findOutletByDistrict = async (customerDistrict) => {
     };
 
     const normalizedCustomerDistrict = normalizeDistrict(customerDistrict);
-    console.log('🔍 Normalized customer district:', normalizedCustomerDistrict);
+    console.log('ðŸ” Normalized customer district:', normalizedCustomerDistrict);
 
     // Priority 1: Match by exact district
     if (normalizedCustomerDistrict) {
       const districtMatch = outlets.find(o => {
         const outletDistrict = normalizeDistrict(o.address?.district);
-        console.log(`🔍 Comparing "${outletDistrict}" with "${normalizedCustomerDistrict}"`);
+        console.log(`ðŸ” Comparing "${outletDistrict}" with "${normalizedCustomerDistrict}"`);
         return outletDistrict === normalizedCustomerDistrict;
       });
       
       if (districtMatch) {
-        console.log('✅ Matched by district:', districtMatch.name, districtMatch._id);
+        console.log('âœ… Matched by district:', districtMatch.name, districtMatch._id);
         return districtMatch._id;
       }
     }
@@ -124,22 +124,22 @@ const findOutletByDistrict = async (customerDistrict) => {
     );
     
     if (customerState) {
-      console.log('✅ Found outlet in Gujarat state (fallback for Rajkot):', customerState.name);
+      console.log('âœ… Found outlet in Gujarat state (fallback for Rajkot):', customerState.name);
       return customerState._id;
     }
 
     // Priority 3: Find any outlet in Gujarat
     const gujaratOutlet = outlets.find(o => o.address?.state === 'Gujarat');
     if (gujaratOutlet) {
-      console.log('✅ Found outlet in Gujarat (state fallback):', gujaratOutlet.name);
+      console.log('âœ… Found outlet in Gujarat (state fallback):', gujaratOutlet.name);
       return gujaratOutlet._id;
     }
 
     // Priority 4: If no match, return first available outlet (fallback)
-    console.log('⚠️ No district or state match found, using fallback outlet:', outlets[0].name);
+    console.log('âš ï¸ No district or state match found, using fallback outlet:', outlets[0].name);
     return outlets[0]._id;
   } catch (error) {
-    console.error('❌ Error in findOutletByDistrict:', error);
+    console.error('âŒ Error in findOutletByDistrict:', error);
     return null;
   }
 };
@@ -187,7 +187,7 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
     // Get customer district details
     const customerDistrict = deliveryAddress?.district || req.user.district || '';
 
-    console.log('🔍 Order creation - Customer district:', { 
+    console.log('ðŸ” Order creation - Customer district:', { 
       customerDistrict,
       deliveryAddress,
       userDistrict: req.user.district
@@ -195,20 +195,20 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
 
     // Special handling for Rajkot district
     if (customerDistrict.toLowerCase() === 'rajkot') {
-      console.log('🔍 Special handling for Rajkot district');
+      console.log('ðŸ” Special handling for Rajkot district');
     }
 
     // Find outlet based on district matching
     const outletId = await findOutletByDistrict(customerDistrict);
 
     if (!outletId) {
-      console.error('❌ No outlet found for delivery');
+      console.error('âŒ No outlet found for delivery');
       return res.status(400).json({ 
         message: `No outlet available for delivery to ${customerDistrict || 'your location'}. Please contact support or try a different delivery location.` 
       });
     }
 
-    console.log('✅ Outlet assigned:', outletId);
+    console.log('âœ… Outlet assigned:', outletId);
 
     // Validate and reduce inventory for the matched outlet before saving order
     try {
@@ -222,7 +222,7 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
     // Calculate delivery fee
     const deliveryFeeCalculation = calculateDeliveryFee(totalAmount);
     
-    console.log('💰 Delivery Fee Calculation:', {
+    console.log('ðŸ’° Delivery Fee Calculation:', {
       orderAmount: totalAmount,
       threshold: 500,
       deliveryFee: deliveryFeeCalculation.fee,
@@ -277,34 +277,15 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
     await order.populate('outletId', 'name address phone');
     await order.populate('customerId', 'name phone');
 
-    // Send invoice email in background (fire-and-forget) to avoid timeout
-    // The order is already saved and cart cleared, so email failure won't affect the order
+    // Send invoice email in background (fire-and-forget)
+    // sendOrderInvoiceEmail handles PDF generation + email sending
     setImmediate(async () => {
       try {
-        console.log('📧 [Background] Starting invoice email process...');
-        console.log('📧 [Background] User email:', req.user.email);
-        
-        const invoiceResult = await generateOrderInvoiceWithPuppeteer(order, req.user.name, req.user.email);
-        
-        if (invoiceResult.success) {
-          console.log(`📄 [Background] PDF generated: ${invoiceResult.filename} (${invoiceResult.size} bytes)`);
-          
-          // Send email with the generated PDF
-          await sendOrderInvoiceEmail(req.user.email, order, req.user.name);
-          console.log('✅ [Background] Invoice email sent successfully to:', req.user.email);
-          
-          // Clean up temp PDF
-          const fs = require('fs');
-          if (fs.existsSync(invoiceResult.filepath)) {
-            fs.unlinkSync(invoiceResult.filepath);
-            console.log('🗑️ [Background] Cleaned up temp PDF');
-          }
-        } else {
-          console.error('❌ [Background] PDF generation failed');
-        }
+        console.log('📧 [Background] Starting invoice email...');
+        await sendOrderInvoiceEmail(req.user.email, order, req.user.name);
+        console.log('✅ [Background] Invoice email sent to:', req.user.email);
       } catch (emailError) {
         console.error('❌ [Background] Invoice email failed:', emailError.message);
-        // Email failure is non-critical - order is already placed
       }
     });
 
@@ -410,24 +391,24 @@ router.put('/:id/status', auth, async (req, res) => {
 // DELETE /api/orders/:id - Delete an order (only for cancelled orders by customers)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    console.log('🔍 DEBUG: Delete order request for ID:', req.params.id);
-    console.log('🔍 DEBUG: User from auth:', req.user);
-    console.log('🔍 DEBUG: User type:', req.userType);
+    console.log('ðŸ” DEBUG: Delete order request for ID:', req.params.id);
+    console.log('ðŸ” DEBUG: User from auth:', req.user);
+    console.log('ðŸ” DEBUG: User type:', req.userType);
 
     const order = await Order.findById(req.params.id);
     
     if (!order) {
-      console.log('❌ Order not found');
+      console.log('âŒ Order not found');
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    console.log('🔍 DEBUG: Order found:', order);
-    console.log('🔍 DEBUG: Order customerId:', order.customerId);
-    console.log('🔍 DEBUG: Order status:', order.orderStatus);
+    console.log('ðŸ” DEBUG: Order found:', order);
+    console.log('ðŸ” DEBUG: Order customerId:', order.customerId);
+    console.log('ðŸ” DEBUG: Order status:', order.orderStatus);
 
     // Check if order is cancelled
     if (order.orderStatus !== 'cancelled') {
-      console.log('❌ Order is not cancelled');
+      console.log('âŒ Order is not cancelled');
       return res.status(400).json({ message: 'Only cancelled orders can be deleted' });
     }
 
@@ -440,14 +421,14 @@ router.delete('/:id', auth, async (req, res) => {
       } else if (req.user.id) {
         currentUserId = req.user.id.toString();
       } else {
-        console.log('❌ User ID not found in user object');
+        console.log('âŒ User ID not found in user object');
         return res.status(401).json({ message: 'User authentication error' });
       }
       
       // Use customerId instead of userId (based on Order model)
       const orderCustomerId = order.customerId ? order.customerId.toString() : null;
       
-      console.log('🔍 DEBUG: Comparing user IDs:', { 
+      console.log('ðŸ” DEBUG: Comparing user IDs:', { 
         orderCustomerId, 
         currentUserId,
         orderCustomerIdType: typeof orderCustomerId,
@@ -455,7 +436,7 @@ router.delete('/:id', auth, async (req, res) => {
       });
       
       if (!orderCustomerId || orderCustomerId !== currentUserId) {
-        console.log('❌ Access denied - user does not own this order');
+        console.log('âŒ Access denied - user does not own this order');
         return res.status(403).json({ message: 'Access denied - you can only delete your own orders' });
       }
     }
@@ -463,12 +444,12 @@ router.delete('/:id', auth, async (req, res) => {
     // Delete the order
     await Order.findByIdAndDelete(req.params.id);
     
-    console.log('✅ Order deleted successfully:', req.params.id);
+    console.log('âœ… Order deleted successfully:', req.params.id);
     res.json({ message: 'Order deleted successfully' });
     
   } catch (error) {
-    console.error('❌ Delete order error:', error);
-    console.error('❌ Error stack:', error.stack);
+    console.error('âŒ Delete order error:', error);
+    console.error('âŒ Error stack:', error.stack);
     res.status(500).json({ 
       message: 'Server error', 
       error: error.message,
@@ -481,7 +462,7 @@ router.delete('/:id', auth, async (req, res) => {
 router.get('/test-outlet/:district', async (req, res) => {
   try {
     const { district } = req.params;
-    console.log('🧪 Testing outlet matching for district:', district);
+    console.log('ðŸ§ª Testing outlet matching for district:', district);
     
     const outletId = await findOutletByDistrict(district);
     
@@ -510,27 +491,27 @@ router.get('/test-outlet/:district', async (req, res) => {
 // PUT /api/orders/:id/address - Update order delivery address
 router.put('/:id/address', auth, async (req, res) => {
   try {
-    console.log('🔍 DEBUG: Update order address request for ID:', req.params.id);
-    console.log('🔍 DEBUG: User from auth:', req.user);
+    console.log('ðŸ” DEBUG: Update order address request for ID:', req.params.id);
+    console.log('ðŸ” DEBUG: User from auth:', req.user);
     
     // Get user type from user object
     const userType = req.user.role || 'customer';
-    console.log('🔍 DEBUG: User type:', userType);
+    console.log('ðŸ” DEBUG: User type:', userType);
 
     const order = await Order.findById(req.params.id);
     
     if (!order) {
-      console.log('❌ Order not found');
+      console.log('âŒ Order not found');
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    console.log('🔍 DEBUG: Order found:', order);
-    console.log('🔍 DEBUG: Order customerId:', order.customerId);
-    console.log('🔍 DEBUG: Order status:', order.orderStatus);
+    console.log('ðŸ” DEBUG: Order found:', order);
+    console.log('ðŸ” DEBUG: Order customerId:', order.customerId);
+    console.log('ðŸ” DEBUG: Order status:', order.orderStatus);
 
     // Check if order can be updated (only pending or confirmed orders)
     if (order.orderStatus !== 'pending' && order.orderStatus !== 'confirmed') {
-      console.log('❌ Order cannot be updated - status:', order.orderStatus);
+      console.log('âŒ Order cannot be updated - status:', order.orderStatus);
       return res.status(400).json({ message: 'Only pending or confirmed orders can have their address updated' });
     }
 
@@ -543,14 +524,14 @@ router.put('/:id/address', auth, async (req, res) => {
       } else if (req.user.id) {
         currentUserId = req.user.id.toString();
       } else {
-        console.log('❌ User ID not found in user object');
+        console.log('âŒ User ID not found in user object');
         return res.status(401).json({ message: 'User authentication error' });
       }
       
       // Use customerId instead of userId
       const orderCustomerId = order.customerId ? order.customerId.toString() : null;
       
-      console.log('🔍 DEBUG: Comparing user IDs:', { 
+      console.log('ðŸ” DEBUG: Comparing user IDs:', { 
         orderCustomerId, 
         currentUserId,
         orderCustomerIdType: typeof orderCustomerId,
@@ -558,7 +539,7 @@ router.put('/:id/address', auth, async (req, res) => {
       });
       
       if (!orderCustomerId || orderCustomerId !== currentUserId) {
-        console.log('❌ Access denied - user does not own this order');
+        console.log('âŒ Access denied - user does not own this order');
         return res.status(403).json({ message: 'Access denied - you can only update your own orders' });
       }
     }
@@ -566,15 +547,15 @@ router.put('/:id/address', auth, async (req, res) => {
     // Validate delivery address
     const { deliveryAddress } = req.body;
     if (!deliveryAddress) {
-      console.log('❌ Delivery address not provided');
+      console.log('âŒ Delivery address not provided');
       return res.status(400).json({ message: 'Delivery address is required' });
     }
 
-    console.log('🔍 DEBUG: Received delivery address object:', JSON.stringify(deliveryAddress, null, 2));
+    console.log('ðŸ” DEBUG: Received delivery address object:', JSON.stringify(deliveryAddress, null, 2));
 
     // Update order delivery address
-    console.log('🔍 DEBUG: Before update - Current order address:', order.deliveryAddress);
-    console.log('🔍 DEBUG: New delivery address data:', deliveryAddress);
+    console.log('ðŸ” DEBUG: Before update - Current order address:', order.deliveryAddress);
+    console.log('ðŸ” DEBUG: New delivery address data:', deliveryAddress);
     
     // Update all individual address fields
     order.deliveryAddress.houseNo = deliveryAddress.houseNo || '';
@@ -592,14 +573,14 @@ router.put('/:id/address', auth, async (req, res) => {
       order.deliveryAddress.address = `${deliveryAddress.houseNo}, ${deliveryAddress.street}, ${deliveryAddress.area}, ${deliveryAddress.state}, ${deliveryAddress.pincode}`;
     }
     
-    console.log('🔍 DEBUG: After update - Updated order address:', order.deliveryAddress);
+    console.log('ðŸ” DEBUG: After update - Updated order address:', order.deliveryAddress);
     
     await order.save();
     
-    console.log('🔍 DEBUG: After save - Order from database:', JSON.stringify(order.deliveryAddress, null, 2));
+    console.log('ðŸ” DEBUG: After save - Order from database:', JSON.stringify(order.deliveryAddress, null, 2));
 
-    console.log('✅ Order address updated successfully:', req.params.id);
-    console.log('🔍 DEBUG: Updated order:', order);
+    console.log('âœ… Order address updated successfully:', req.params.id);
+    console.log('ðŸ” DEBUG: Updated order:', order);
     
     res.json({ 
       message: 'Order address updated successfully',
@@ -607,7 +588,7 @@ router.put('/:id/address', auth, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error updating order address:', error);
+    console.error('âŒ Error updating order address:', error);
     res.status(500).json({ error: error.message });
   }
 });
