@@ -1144,12 +1144,27 @@ const Cart = () => {
 
                   <div className="item-details">
                     <h3>{item.name}</h3>
-                    <p className="item-price">₹{item.price} / {item.unit}</p>
+                    <p className="item-price">{item.unit}</p>
+                  </div>
+
+                  <div className="item-subtotal">
+                    ₹{item.subtotal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   </div>
 
                   {/* -----------------------------------------------
+                      FIXED: Remove item - trash icon button
+                   ----------------------------------------------- */}
+                  <button
+                    onClick={() => removeItem(getProductId(item))}
+                    className="btn-remove"
+                    aria-label="Remove item"
+                  >
+                    🗑️
+                  </button>
+
+                  {/* -----------------------------------------------
                       ENHANCED: Quantity controls with smooth animations
-                     ----------------------------------------------- */}
+                   ----------------------------------------------- */}
                   <div className="quantity-controls">
                     <div className="quantity-input-group">
                       <button 
@@ -1177,7 +1192,6 @@ const Cart = () => {
                           maxLength={3}
                           placeholder=""
                         />
-                        <span className="quantity-unit">{item.unit}</span>
                       </div>
                       
                       <button 
@@ -1191,20 +1205,6 @@ const Cart = () => {
                       </button>
                     </div>
                   </div>
-
-                  <div className="item-subtotal">
-                    ₹{item.subtotal.toFixed(2)}
-                  </div>
-
-                  {/* -----------------------------------------------
-                      FIXED: Remove item event corrected
-                     ----------------------------------------------- */}
-                  <button
-                    onClick={() => removeItem(getProductId(item))}
-                    className="btn-remove"
-                  >
-                    ×
-                  </button>
 
                 </div>
               ))}
