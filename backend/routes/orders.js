@@ -23,28 +23,73 @@ const findMatchingInventoryItem = (inventoryItems, orderItem) => {
   const productObjectId = orderItem.productId?.toString();
   const normalizedName = normalizeInventoryKey(orderItem.name);
 
-  return inventoryItems.find((inventoryItem) => {
+  // Pass 1: Exact productId match (most reliable)
+  for (const inventoryItem of inventoryItems) {
     const inventoryProductId = inventoryItem.productId?.toString();
-    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
+    if (inventoryProductId && productObjectId && inventoryProductId === productObjectId) {
+      return inventoryItem;
+    }
+  }
 
-    return (
-      inventoryProductId === productObjectId ||
-      inventoryProductId === normalizedName ||
-      inventoryProductName === normalizedName
-    );
-  });
+  // Pass 2: Exact normalized name match
+  for (const inventoryItem of inventoryItems) {
+    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
+    if (normalizedName && inventoryProductName === normalizedName) {
+      return inventoryItem;
+    }
+  }
+
+  // Pass 3: Partial name match (handles "Jaggery (Gud)" vs "jaggery" etc.)
+  for (const inventoryItem of inventoryItems) {
+    const inventoryProductName = normalizeInventoryKey(inventoryItem.productName);
+    if (normalizedName && inventoryProductName &&
+        (inventoryProductName.includes(normalizedName) || normalizedName.includes(inventoryProductName))) {
+      return inventoryItem;
+    }
+  }
+
+  return null;
 };
 
-const validateAndReduceInventory = async (outletId, orderItems) => {
+const validateAndReduceInventory = async (outletId, orderItems, outletName = 'Unknown') => {
   const inventoryItems = await Inventory.find({ outletId });
+
+  console.log(`📦 Inventory check for outlet "${outletName}" (${outletId}):`);
+  console.log(`📦 Total inventory items found: ${inventoryItems.length}`);
+
+  if (inventoryItems.length === 0) {
+    // Debug: check if inventory exists under any outletId
+    console.log('⚠️ No inventory items found for this outlet!');
+    const sampleInventory = await Inventory.find({}).limit(5);
+    if (sampleInventory.length > 0) {
+      console.log('⚠️ Inventory exists under different outletIds:');
+      sampleInventory.forEach(item => {
+        console.log(`   outletId: ${item.outletId}, product: ${item.productName}, qty: ${item.quantity}`);
+      });
+    }
+    throw new Error(`No inventory configured for outlet "${outletName}". Please ask the outlet manager to set up inventory first.`);
+  }
+
+  // Log available inventory for debugging
+  inventoryItems.forEach(item => {
+    console.log(`  📋 ${item.productName} (ID: ${item.productId}) => Qty: ${item.quantity} ${item.unit || 'kg'}`);
+  });
+
   const touchedInventory = [];
 
   for (const orderItem of orderItems) {
+    console.log(`\n🔍 Looking for: "${orderItem.name}" (productId: ${orderItem.productId})`);
+
     const inventoryItem = findMatchingInventoryItem(inventoryItems, orderItem);
 
     if (!inventoryItem) {
-      throw new Error(`Inventory not found for ${orderItem.name} in the selected outlet`);
+      console.log(`❌ No inventory match found for "${orderItem.name}"`);
+      throw new Error(
+        `"${orderItem.name}" is not available in the "${outletName}" outlet inventory. Please contact the outlet manager.`
+      );
     }
+
+    console.log(`✅ Matched: "${inventoryItem.productName}" (Qty: ${inventoryItem.quantity})`);
 
     // Ensure both quantities are valid numbers to prevent NaN
     const currentStock = Number(inventoryItem.quantity) || 0;
@@ -56,7 +101,7 @@ const validateAndReduceInventory = async (outletId, orderItems) => {
 
     if (currentStock < requiredQty) {
       throw new Error(
-        `Not enough stock for ${orderItem.name}. Available: ${currentStock}, required: ${requiredQty}`
+        `Not enough stock for "${orderItem.name}" in "${outletName}" outlet. Available: ${currentStock}, Required: ${requiredQty}`
       );
     }
 
@@ -68,7 +113,6 @@ const validateAndReduceInventory = async (outletId, orderItems) => {
       inventoryItem.productName = orderItem.name || 'Unknown Product';
     }
     if (!inventoryItem.category) {
-      // Try to look up from product catalog
       try {
         const product = await Product.findById(orderItem.productId);
         inventoryItem.category = product?.category || 'others';
@@ -84,6 +128,7 @@ const validateAndReduceInventory = async (outletId, orderItems) => {
     await inventoryItem.save();
   }
 
+  console.log(`✅ Inventory reduced successfully for ${touchedInventory.length} items`);
   return touchedInventory;
 };
 
@@ -99,22 +144,23 @@ const restoreInventoryQuantities = async (inventoryItems, orderItems) => {
 };
 
 // Helper function to find outlet based on district matching
+// Returns { outletId, outletName } for better error messages
 const findOutletByDistrict = async (customerDistrict) => {
   try {
     const outlets = await Outlet.find({ isActive: true });
-    
-    console.log('ðŸ” Finding outlet for district:', customerDistrict);
-    console.log('ðŸ” Available outlets:', outlets.length);
-    
+
+    console.log('🔍 Finding outlet for district:', customerDistrict);
+    console.log('🔍 Available outlets:', outlets.length);
+
     if (outlets.length === 0) {
-      console.log('âŒ No active outlets found');
-      return null;
+      console.log('❌ No active outlets found');
+      return { outletId: null, outletName: null };
     }
 
     // Log all available outlet districts for debugging
-    console.log('ðŸ” Available outlet districts:');
+    console.log('🔍 Available outlet districts:');
     outlets.forEach(outlet => {
-      console.log(`  - ${outlet.name}: ${outlet.address?.district} (${outlet.address?.state})`);
+      console.log(`  - "${outlet.name}" (ID: ${outlet._id}): district="${outlet.address?.district}", state="${outlet.address?.state}"`);
     });
 
     // Normalize district names for comparison (case-insensitive, trimmed)
@@ -124,46 +170,50 @@ const findOutletByDistrict = async (customerDistrict) => {
     };
 
     const normalizedCustomerDistrict = normalizeDistrict(customerDistrict);
-    console.log('ðŸ” Normalized customer district:', normalizedCustomerDistrict);
+    console.log('🔍 Normalized customer district:', normalizedCustomerDistrict);
 
-    // Priority 1: Match by exact district
+    // Priority 1: Exact district match
     if (normalizedCustomerDistrict) {
       const districtMatch = outlets.find(o => {
         const outletDistrict = normalizeDistrict(o.address?.district);
-        console.log(`ðŸ” Comparing "${outletDistrict}" with "${normalizedCustomerDistrict}"`);
         return outletDistrict === normalizedCustomerDistrict;
       });
-      
+
       if (districtMatch) {
-        console.log('âœ… Matched by district:', districtMatch.name, districtMatch._id);
-        return districtMatch._id;
+        console.log('✅ Matched by exact district:', districtMatch.name, districtMatch._id);
+        return { outletId: districtMatch._id, outletName: districtMatch.name };
       }
     }
 
-    // Priority 2: If no exact match, try to find outlet in same state
-    const customerState = outlets.find(o => 
-      normalizeDistrict(o.address?.district) === 'rajkot' && 
-      o.address?.state === 'Gujarat'
-    );
-    
-    if (customerState) {
-      console.log('âœ… Found outlet in Gujarat state (fallback for Rajkot):', customerState.name);
-      return customerState._id;
+    // Priority 2: Partial district match (handles "Rajkot District" vs "Rajkot")
+    if (normalizedCustomerDistrict) {
+      const partialMatch = outlets.find(o => {
+        const outletDistrict = normalizeDistrict(o.address?.district);
+        return outletDistrict && (
+          outletDistrict.includes(normalizedCustomerDistrict) ||
+          normalizedCustomerDistrict.includes(outletDistrict)
+        );
+      });
+
+      if (partialMatch) {
+        console.log('✅ Matched by partial district:', partialMatch.name, partialMatch._id);
+        return { outletId: partialMatch._id, outletName: partialMatch.name };
+      }
     }
 
-    // Priority 3: Find any outlet in Gujarat
+    // Priority 3: Find any outlet in Gujarat state
     const gujaratOutlet = outlets.find(o => o.address?.state === 'Gujarat');
     if (gujaratOutlet) {
-      console.log('âœ… Found outlet in Gujarat (state fallback):', gujaratOutlet.name);
-      return gujaratOutlet._id;
+      console.log('✅ Found outlet in Gujarat (state fallback):', gujaratOutlet.name);
+      return { outletId: gujaratOutlet._id, outletName: gujaratOutlet.name };
     }
 
-    // Priority 4: If no match, return first available outlet (fallback)
-    console.log('âš ï¸ No district or state match found, using fallback outlet:', outlets[0].name);
-    return outlets[0]._id;
+    // Priority 4: Fallback to first available outlet
+    console.log('⚠️ No district/state match, using fallback outlet:', outlets[0].name);
+    return { outletId: outlets[0]._id, outletName: outlets[0].name };
   } catch (error) {
-    console.error('âŒ Error in findOutletByDistrict:', error);
-    return null;
+    console.error('❌ Error in findOutletByDistrict:', error);
+    return { outletId: null, outletName: null };
   }
 };
 
@@ -210,43 +260,38 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
     // Get customer district details
     const customerDistrict = deliveryAddress?.district || req.user.district || '';
 
-    console.log('ðŸ” Order creation - Customer district:', { 
+    console.log('🔍 Order creation - Customer district:', {
       customerDistrict,
       deliveryAddress,
       userDistrict: req.user.district
     });
 
-    // Special handling for Rajkot district
-    if (customerDistrict.toLowerCase() === 'rajkot') {
-      console.log('ðŸ” Special handling for Rajkot district');
-    }
-
-    // Find outlet based on district matching
-    const outletId = await findOutletByDistrict(customerDistrict);
+    // Find outlet based on district matching (now returns { outletId, outletName })
+    const { outletId, outletName } = await findOutletByDistrict(customerDistrict);
 
     if (!outletId) {
-      console.error('âŒ No outlet found for delivery');
-      return res.status(400).json({ 
-        message: `No outlet available for delivery to ${customerDistrict || 'your location'}. Please contact support or try a different delivery location.` 
+      console.error('❌ No outlet found for delivery');
+      return res.status(400).json({
+        message: `No outlet available for delivery to ${customerDistrict || 'your location'}. Please contact support or try a different delivery location.`
       });
     }
 
-    console.log('âœ… Outlet assigned:', outletId);
+    console.log(`✅ Outlet assigned: "${outletName}" (${outletId})`);
 
     // Validate and reduce inventory for the matched outlet before saving order
     try {
-      adjustedInventoryItems = await validateAndReduceInventory(outletId, items);
+      adjustedInventoryItems = await validateAndReduceInventory(outletId, items, outletName);
     } catch (inventoryError) {
       console.error('❌ Inventory validation error:', inventoryError.message);
       return res.status(400).json({
-        message: `Inventory issue: ${inventoryError.message}`
+        message: inventoryError.message
       });
     }
 
     // Calculate delivery fee
     const deliveryFeeCalculation = calculateDeliveryFee(totalAmount);
-    
-    console.log('ðŸ’° Delivery Fee Calculation:', {
+
+    console.log('💰 Delivery Fee Calculation:', {
       orderAmount: totalAmount,
       threshold: 500,
       deliveryFee: deliveryFeeCalculation.fee,
@@ -415,24 +460,24 @@ router.put('/:id/status', auth, async (req, res) => {
 // DELETE /api/orders/:id - Delete an order (only for cancelled orders by customers)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    console.log('ðŸ” DEBUG: Delete order request for ID:', req.params.id);
-    console.log('ðŸ” DEBUG: User from auth:', req.user);
-    console.log('ðŸ” DEBUG: User type:', req.userType);
+    console.log('🔍 DEBUG: Delete order request for ID:', req.params.id);
+    console.log('🔍 DEBUG: User from auth:', req.user);
+    console.log('🔍 DEBUG: User type:', req.userType);
 
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
-      console.log('âŒ Order not found');
+      console.log('❌ Order not found');
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    console.log('ðŸ” DEBUG: Order found:', order);
-    console.log('ðŸ” DEBUG: Order customerId:', order.customerId);
-    console.log('ðŸ” DEBUG: Order status:', order.orderStatus);
+    console.log('🔍 DEBUG: Order found:', order);
+    console.log('🔍 DEBUG: Order customerId:', order.customerId);
+    console.log('🔍 DEBUG: Order status:', order.orderStatus);
 
     // Check if order is cancelled
     if (order.orderStatus !== 'cancelled') {
-      console.log('âŒ Order is not cancelled');
+      console.log('❌ Order is not cancelled');
       return res.status(400).json({ message: 'Only cancelled orders can be deleted' });
     }
 
@@ -445,37 +490,37 @@ router.delete('/:id', auth, async (req, res) => {
       } else if (req.user.id) {
         currentUserId = req.user.id.toString();
       } else {
-        console.log('âŒ User ID not found in user object');
+        console.log('❌ User ID not found in user object');
         return res.status(401).json({ message: 'User authentication error' });
       }
-      
+
       // Use customerId instead of userId (based on Order model)
       const orderCustomerId = order.customerId ? order.customerId.toString() : null;
-      
-      console.log('ðŸ” DEBUG: Comparing user IDs:', { 
-        orderCustomerId, 
+
+      console.log('🔍 DEBUG: Comparing user IDs:', {
+        orderCustomerId,
         currentUserId,
         orderCustomerIdType: typeof orderCustomerId,
         currentUserIdType: typeof currentUserId
       });
-      
+
       if (!orderCustomerId || orderCustomerId !== currentUserId) {
-        console.log('âŒ Access denied - user does not own this order');
+        console.log('❌ Access denied - user does not own this order');
         return res.status(403).json({ message: 'Access denied - you can only delete your own orders' });
       }
     }
 
     // Delete the order
     await Order.findByIdAndDelete(req.params.id);
-    
-    console.log('âœ… Order deleted successfully:', req.params.id);
+
+    console.log('✅ Order deleted successfully:', req.params.id);
     res.json({ message: 'Order deleted successfully' });
-    
+
   } catch (error) {
-    console.error('âŒ Delete order error:', error);
-    console.error('âŒ Error stack:', error.stack);
-    res.status(500).json({ 
-      message: 'Server error', 
+    console.error('❌ Delete order error:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      message: 'Server error',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -486,19 +531,29 @@ router.delete('/:id', auth, async (req, res) => {
 router.get('/test-outlet/:district', async (req, res) => {
   try {
     const { district } = req.params;
-    console.log('ðŸ§ª Testing outlet matching for district:', district);
-    
-    const outletId = await findOutletByDistrict(district);
-    
+    console.log('🧪 Testing outlet matching for district:', district);
+
+    const { outletId, outletName } = await findOutletByDistrict(district);
+
     if (outletId) {
       const outlet = await Outlet.findById(outletId);
+
+      // Also check inventory count for this outlet
+      const inventoryCount = await Inventory.countDocuments({ outletId });
+      const inventoryItems = await Inventory.find({ outletId }).select('productName quantity');
+
       res.json({
         success: true,
         district,
         outletId,
         outletName: outlet.name,
         outletDistrict: outlet.address?.district,
-        outletState: outlet.address?.state
+        outletState: outlet.address?.state,
+        inventoryItemsCount: inventoryCount,
+        inventoryItems: inventoryItems.map(i => ({
+          name: i.productName,
+          qty: i.quantity
+        }))
       });
     } else {
       res.json({
@@ -515,27 +570,27 @@ router.get('/test-outlet/:district', async (req, res) => {
 // PUT /api/orders/:id/address - Update order delivery address
 router.put('/:id/address', auth, async (req, res) => {
   try {
-    console.log('ðŸ” DEBUG: Update order address request for ID:', req.params.id);
-    console.log('ðŸ” DEBUG: User from auth:', req.user);
-    
+    console.log('🔍 DEBUG: Update order address request for ID:', req.params.id);
+    console.log('🔍 DEBUG: User from auth:', req.user);
+
     // Get user type from user object
     const userType = req.user.role || 'customer';
-    console.log('ðŸ” DEBUG: User type:', userType);
+    console.log('🔍 DEBUG: User type:', userType);
 
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
-      console.log('âŒ Order not found');
+      console.log('❌ Order not found');
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    console.log('ðŸ” DEBUG: Order found:', order);
-    console.log('ðŸ” DEBUG: Order customerId:', order.customerId);
-    console.log('ðŸ” DEBUG: Order status:', order.orderStatus);
+    console.log('🔍 DEBUG: Order found:', order);
+    console.log('🔍 DEBUG: Order customerId:', order.customerId);
+    console.log('🔍 DEBUG: Order status:', order.orderStatus);
 
     // Check if order can be updated (only pending or confirmed orders)
     if (order.orderStatus !== 'pending' && order.orderStatus !== 'confirmed') {
-      console.log('âŒ Order cannot be updated - status:', order.orderStatus);
+      console.log('❌ Order cannot be updated - status:', order.orderStatus);
       return res.status(400).json({ message: 'Only pending or confirmed orders can have their address updated' });
     }
 
@@ -548,22 +603,22 @@ router.put('/:id/address', auth, async (req, res) => {
       } else if (req.user.id) {
         currentUserId = req.user.id.toString();
       } else {
-        console.log('âŒ User ID not found in user object');
+        console.log('❌ User ID not found in user object');
         return res.status(401).json({ message: 'User authentication error' });
       }
-      
+
       // Use customerId instead of userId
       const orderCustomerId = order.customerId ? order.customerId.toString() : null;
-      
-      console.log('ðŸ” DEBUG: Comparing user IDs:', { 
-        orderCustomerId, 
+
+      console.log('🔍 DEBUG: Comparing user IDs:', {
+        orderCustomerId,
         currentUserId,
         orderCustomerIdType: typeof orderCustomerId,
         currentUserIdType: typeof currentUserId
       });
-      
+
       if (!orderCustomerId || orderCustomerId !== currentUserId) {
-        console.log('âŒ Access denied - user does not own this order');
+        console.log('❌ Access denied - user does not own this order');
         return res.status(403).json({ message: 'Access denied - you can only update your own orders' });
       }
     }
@@ -571,16 +626,16 @@ router.put('/:id/address', auth, async (req, res) => {
     // Validate delivery address
     const { deliveryAddress } = req.body;
     if (!deliveryAddress) {
-      console.log('âŒ Delivery address not provided');
+      console.log('❌ Delivery address not provided');
       return res.status(400).json({ message: 'Delivery address is required' });
     }
 
-    console.log('ðŸ” DEBUG: Received delivery address object:', JSON.stringify(deliveryAddress, null, 2));
+    console.log('🔍 DEBUG: Received delivery address object:', JSON.stringify(deliveryAddress, null, 2));
 
     // Update order delivery address
-    console.log('ðŸ” DEBUG: Before update - Current order address:', order.deliveryAddress);
-    console.log('ðŸ” DEBUG: New delivery address data:', deliveryAddress);
-    
+    console.log('🔍 DEBUG: Before update - Current order address:', order.deliveryAddress);
+    console.log('🔍 DEBUG: New delivery address data:', deliveryAddress);
+
     // Update all individual address fields
     order.deliveryAddress.houseNo = deliveryAddress.houseNo || '';
     order.deliveryAddress.street = deliveryAddress.street || '';
@@ -591,28 +646,28 @@ router.put('/:id/address', auth, async (req, res) => {
     order.deliveryAddress.district = deliveryAddress.district || '';
     order.deliveryAddress.pincode = deliveryAddress.pincode || '';
     order.deliveryAddress.mobileNumber = deliveryAddress.mobileNumber || '';
-    
+
     // Also update the address string for backward compatibility
     if (deliveryAddress.houseNo && deliveryAddress.street && deliveryAddress.area && deliveryAddress.state && deliveryAddress.pincode) {
       order.deliveryAddress.address = `${deliveryAddress.houseNo}, ${deliveryAddress.street}, ${deliveryAddress.area}, ${deliveryAddress.state}, ${deliveryAddress.pincode}`;
     }
-    
-    console.log('ðŸ” DEBUG: After update - Updated order address:', order.deliveryAddress);
-    
-    await order.save();
-    
-    console.log('ðŸ” DEBUG: After save - Order from database:', JSON.stringify(order.deliveryAddress, null, 2));
 
-    console.log('âœ… Order address updated successfully:', req.params.id);
-    console.log('ðŸ” DEBUG: Updated order:', order);
-    
-    res.json({ 
+    console.log('🔍 DEBUG: After update - Updated order address:', order.deliveryAddress);
+
+    await order.save();
+
+    console.log('🔍 DEBUG: After save - Order from database:', JSON.stringify(order.deliveryAddress, null, 2));
+
+    console.log('✅ Order address updated successfully:', req.params.id);
+    console.log('🔍 DEBUG: Updated order:', order);
+
+    res.json({
       message: 'Order address updated successfully',
       order: order
     });
-    
+
   } catch (error) {
-    console.error('âŒ Error updating order address:', error);
+    console.error('❌ Error updating order address:', error);
     res.status(500).json({ error: error.message });
   }
 });

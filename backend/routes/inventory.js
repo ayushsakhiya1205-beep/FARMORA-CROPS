@@ -193,6 +193,72 @@ router.get('/low-stock/:outletId', auth, authorize('outletManager', 'admin'), as
   }
 });
 
+// Public endpoint: Check stock levels for an outlet (used during order placement debugging)
+router.get('/check/:outletId', async (req, res) => {
+  try {
+    const { outletId } = req.params;
+    const inventory = await Inventory.find({ outletId })
+      .select('productName productId quantity unit category')
+      .sort({ category: 1, productName: 1 });
+
+    const Outlet = require('../models/Outlet');
+    const outlet = await Outlet.findById(outletId).select('name address');
+
+    res.json({
+      outletId,
+      outletName: outlet?.name || 'Unknown',
+      outletDistrict: outlet?.address?.district || 'Unknown',
+      totalItems: inventory.length,
+      items: inventory.map(item => ({
+        productName: item.productName,
+        productId: item.productId,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        inStock: item.quantity > 0
+      }))
+    });
+  } catch (error) {
+    console.error('Error checking inventory:', error);
+    res.status(500).json({ message: 'Error checking inventory' });
+  }
+});
+
+// Debug endpoint: List all inventory grouped by outletId
+router.get('/debug/all', async (req, res) => {
+  try {
+    const allInventory = await Inventory.find({}).select('outletId productName quantity');
+    const Outlet = require('../models/Outlet');
+    const allOutlets = await Outlet.find({}).select('name address isActive');
+
+    // Group inventory by outletId
+    const grouped = {};
+    allInventory.forEach(item => {
+      const key = item.outletId?.toString() || 'unknown';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push({ name: item.productName, qty: item.quantity });
+    });
+
+    res.json({
+      outlets: allOutlets.map(o => ({
+        id: o._id,
+        name: o.name,
+        district: o.address?.district,
+        state: o.address?.state,
+        isActive: o.isActive,
+        inventoryCount: grouped[o._id?.toString()]?.length || 0
+      })),
+      inventoryByOutlet: grouped,
+      totalInventoryItems: allInventory.length
+    });
+  } catch (error) {
+    console.error('Error debugging inventory:', error);
+    res.status(500).json({ message: 'Error debugging inventory' });
+  }
+});
+
+// NOTE: This wildcard route MUST be last - it matches any /:outletId
+
 router.get('/:outletId', auth, authorize('outletManager', 'admin'), async (req, res) => {
   try {
     const { outletId } = req.params;
