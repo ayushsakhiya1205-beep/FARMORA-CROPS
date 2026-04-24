@@ -337,8 +337,8 @@ const Orders = () => {
                   {order.items.map((item, index) => (
                     <div key={index} className="order-item">
                       <div className="order-item-image">
-                        {item.image ? (
-                          <img src={getImageUrl(item.image)} alt={item.name} />
+                        {(item.image || item.productId?.image) ? (
+                          <img src={getImageUrl(item.image || item.productId?.image)} alt={item.name} />
                         ) : (
                           <div className="order-item-placeholder">🌾</div>
                         )}

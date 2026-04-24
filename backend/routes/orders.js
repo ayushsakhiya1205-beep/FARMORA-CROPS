@@ -173,6 +173,7 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
       items.push({
         productId: product._id,
         name: product.name,
+        image: product.image || '',
         quantity: item.quantity,
         price: product.price,
         unit: product.unit
@@ -276,172 +277,40 @@ router.post('/', auth, authorize('customer'), async (req, res) => {
     await order.populate('outletId', 'name address phone');
     await order.populate('customerId', 'name phone');
 
-    // Send invoice email to customer
-    console.log('🔍 DEBUG: Starting invoice email process...');
-    console.log('🔍 DEBUG: User object:', JSON.stringify(req.user, null, 2));
-    console.log('🔍 DEBUG: Order object:', JSON.stringify(order, null, 2));
-    
-    // Monitor the email attempt
-    try {
-      await fetch('http://localhost:8002/log-order-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order._id,
-          userEmail: req.user.email,
-          userName: req.user.name,
-          order: order,
-          user: req.user
-        })
-      });
-    } catch (monitorError) {
-      console.log('⚠️ Monitor server not running, continuing...');
-    }
-    
-    try {
-      console.log('🌐 Generating Puppeteer PDF invoice for customer...');
-      console.log('🔍 DEBUG: User email:', req.user.email);
-      console.log('🔍 DEBUG: User name:', req.user.name);
-      console.log('🔍 DEBUG: Order ID:', order._id);
-      
-      // Generate PDF invoice using Puppeteer
-      const invoiceResult = await generateOrderInvoiceWithPuppeteer(order, req.user.name, req.user.email);
-      
-      if (!invoiceResult.success) {
-        console.error('🔍 DEBUG: PDF generation failed:', invoiceResult);
-        throw new Error('Failed to generate PDF invoice with Puppeteer');
+    // Send invoice email in background (fire-and-forget) to avoid timeout
+    // The order is already saved and cart cleared, so email failure won't affect the order
+    setImmediate(async () => {
+      try {
+        console.log('📧 [Background] Starting invoice email process...');
+        console.log('📧 [Background] User email:', req.user.email);
+        
+        const invoiceResult = await generateOrderInvoiceWithPuppeteer(order, req.user.name, req.user.email);
+        
+        if (invoiceResult.success) {
+          console.log(`📄 [Background] PDF generated: ${invoiceResult.filename} (${invoiceResult.size} bytes)`);
+          
+          // Send email with the generated PDF
+          await sendOrderInvoiceEmail(req.user.email, order, req.user.name);
+          console.log('✅ [Background] Invoice email sent successfully to:', req.user.email);
+          
+          // Clean up temp PDF
+          const fs = require('fs');
+          if (fs.existsSync(invoiceResult.filepath)) {
+            fs.unlinkSync(invoiceResult.filepath);
+            console.log('🗑️ [Background] Cleaned up temp PDF');
+          }
+        } else {
+          console.error('❌ [Background] PDF generation failed');
+        }
+      } catch (emailError) {
+        console.error('❌ [Background] Invoice email failed:', emailError.message);
+        // Email failure is non-critical - order is already placed
       }
-      
-      console.log(`📄 Puppeteer PDF invoice generated: ${invoiceResult.filename} (${invoiceResult.size} bytes)`);
-      
-      // Read PDF as buffer for attachment
-      const fs = require('fs');
-      const pdfBuffer = fs.readFileSync(invoiceResult.filepath);
-      
-      // Create HTML email template
-      const htmlTemplate = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Order Invoice - Farmora Crops</title>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #f4f4f4; }
-            .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-            .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #114714; }
-            .logo { font-size: 28px; font-weight: bold; color: #114714; margin-bottom: 10px; }
-            .invoice-header { display: flex; justify-content: space-between; margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
-            .invoice-info h3 { margin: 0 0 10px 0; color: #114714; }
-            .invoice-info p { margin: 5px 0; font-size: 14px; }
-            .delivery-info { margin: 30px 0; padding: 20px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #114714; }
-            .tracking-info { margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107; }
-            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; font-size: 12px; }
-            .pdf-notice { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; }
-            .status-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; background: #ffc107; color: #000; }
-            .puppeteer-badge { background: #007bff; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="logo">🌾 Farmora Crops</div>
-              <h2>Order Invoice <span class="puppeteer-badge">Premium PDF</span></h2>
-            </div>
-            
-            <div class="invoice-header">
-              <div class="invoice-info">
-                <h3>Invoice Details</h3>
-                <p><strong>Invoice #:</strong> ${order._id}</p>
-                <p><strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
-                <p><strong>Status:</strong> <span class="status-badge">${order.orderStatus}</span></p>
-              </div>
-              <div class="invoice-info">
-                <h3>Customer Information</h3>
-                <p><strong>Name:</strong> ${req.user.name}</p>
-                <p><strong>Email:</strong> ${req.user.email}</p>
-                <p><strong>Phone:</strong> ${req.user.phone || 'N/A'}</p>
-              </div>
-            </div>
-            
-            <div class="pdf-notice">
-              <h3>📄 Your Premium PDF Invoice is Attached!</h3>
-              <p>Please find your professionally designed order invoice attached as a high-quality PDF file. Generated using advanced rendering technology for perfect formatting.</p>
-            </div>
-            
-            <div class="delivery-info">
-              <h3>📦 Delivery Information</h3>
-              <p><strong>Delivery Address:</strong></p>
-              <p>${order.deliveryAddress?.address || 'N/A'}</p>
-              <p>${order.deliveryAddress?.district || ''}, ${order.deliveryAddress?.state || ''} - ${order.deliveryAddress?.pincode || ''}</p>
-              <p><strong>Payment Method:</strong> ${order.paymentMethod === 'cod' ? 'Cash on Delivery' : order.paymentMethod === 'razorpay' ? 'Razorpay Online Payment' : 'Online Payment'}</p>
-              <p><strong>Total Amount:</strong> ₹${order.finalAmount.toFixed(2)}</p>
-            </div>
-            
-            <div class="tracking-info">
-              <h3>📍 Order Tracking</h3>
-              <p><strong>Tracking ID:</strong> <code>${order._id}</code></p>
-              <p>You can track your order status using this tracking ID on our website or mobile app.</p>
-              <p><strong>Customer Support:</strong> support@farmoracrops.com | +91-XXXXXXXXXX</p>
-            </div>
-            
-            <div class="footer">
-              <p>© 2024 Farmora Crops. All rights reserved.</p>
-              <p>Thank you for choosing Farmora Crops for your organic agricultural needs!</p>
-              <p>This is an automated invoice. Please keep it for your records.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-      
-      // Prepare email attachment with PDF buffer
-      const attachments = [{
-        filename: invoiceResult.filename,
-        content: pdfBuffer,
-        contentType: 'application/pdf'
-      }];
-      
-      // Send email with PDF attachment
-      console.log('📧 Sending email with PDF attachment...');
-      const emailResult = await sendOrderInvoiceEmail(req.user.email, order, req.user.name);
-      
-      console.log('✅ Puppeteer PDF invoice email sent successfully to:', req.user.email);
-      
-      // Clean up temporary PDF file
-      fs.unlinkSync(invoiceResult.filepath);
-      console.log('🗑️ Cleaned up temporary PDF file');
-      
-    } catch (emailError) {
-      console.error('❌ Failed to send invoice email:', emailError);
-      console.error('🔍 DEBUG: Email error details:', JSON.stringify(emailError, null, 2));
-      console.error('🔍 DEBUG: Email details:', { 
-        userEmail: req.user?.email, 
-        orderId: order?._id,
-        userName: req.user?.name,
-        orderStatus: order?.orderStatus,
-        finalAmount: order?.finalAmount
-      });
-      
-      // Don't fail the order creation if email fails, but log it
-      console.log('⚠️ Email failed but order will still be created');
-      
-      // Return error info for debugging
-      console.log('📧 Email error details:', {
-        error: emailError.message,
-        code: emailError.code || 'UNKNOWN',
-        orderId: order?._id,
-        userEmail: req.user?.email,
-        userName: req.user?.name
-      });
-      
-      // Continue with order creation even if email fails
-      console.log('🚀 Continuing with order creation...');
-    }
+    });
 
     res.status(201).json({
       success: true,
-      message: 'Order placed successfully! Invoice has been sent to your email.',
+      message: 'Order placed successfully! Invoice will be sent to your email shortly.',
       order
     });
   } catch (error) {
