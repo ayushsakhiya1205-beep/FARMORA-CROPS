@@ -45,11 +45,10 @@ const Footer = () => {
             <p className="footer-company-name">Farmora Crops</p>
             <ul className="footer-contact-list">
               <li>
-                Outlet-based distribution across Gujarat &amp; nearby regions<br />
-                City &amp; village outlets near you
+                Outlet-based distribution across Gujarat
               </li>
-              <li>Phone: +91-00000-00000</li>
-              <li>Email: support@farmoracrops.com</li>
+              <li>Phone: +91 8733040849</li>
+              <li>Email: farmoracrops@gmail.com</li>
             </ul>
 
             <ul className="footer-social-links">

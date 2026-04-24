@@ -671,26 +671,31 @@
 
   /* Quantity controls sizing for touch */
   .quantity-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 15px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
   }
 
   .quantity-display {
-    min-width: 55px;
-    padding: 0 4px;
+    min-width: 60px;
+    padding: 0 6px;
   }
 
   .quantity-input {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .quantity-number {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .quantity-unit {
-    font-size: 10px;
+    font-size: 11px;
+  }
+
+  .quantity-input-group {
+    border-radius: 10px;
+    border-width: 2px;
   }
 
   /* Form styles */
@@ -829,21 +834,21 @@
   }
 
   .quantity-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
   }
 
   .quantity-display {
-    min-width: 48px;
+    min-width: 54px;
   }
 
   .quantity-input {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .quantity-number {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .summary-card {
