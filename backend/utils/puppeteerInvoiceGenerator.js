@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
@@ -9,300 +9,202 @@ if (!fs.existsSync(invoicesDir)) {
 }
 
 const generateOrderInvoiceWithPuppeteer = async (orderDetails, customerName, customerEmail) => {
-  let browser = null;
-  
   try {
-    console.log('🌐 Launching Puppeteer for PDF generation...');
-    
-    // Launch Puppeteer
-    const chromePaths = [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Users\\' + process.env.USERNAME + '\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe'
-    ];
-    
-    let executablePath = null;
-    for (const chromePath of chromePaths) {
-      if (fs.existsSync(chromePath)) {
-        executablePath = chromePath;
-        break;
-      }
-    }
-    
-    const launchOptions = {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    };
-    
-    if (executablePath) {
-      launchOptions.executablePath = executablePath;
-      console.log('🌐 Using system Chrome:', executablePath);
-    } else {
-      console.log('🌐 Using bundled Chrome (may need installation)');
-    }
-    
-    browser = await puppeteer.launch(launchOptions);
-    
-    const page = await browser.newPage();
-    
-    // Generate unique filename
+    console.log('📄 Generating PDF invoice with PDFKit...');
+
     const filename = `invoice_${orderDetails._id}_${Date.now()}.pdf`;
-    const filepath = path.resolve(invoicesDir, filename); // Use absolute path
-    
-    // Calculate estimated delivery days
+    const filepath = path.resolve(invoicesDir, filename);
+
+    // Estimated delivery days
     const estimatedDeliveryDays = Math.max(3, Math.ceil(orderDetails.items.length * 2));
-    
-    // Create HTML template for invoice
-    const htmlTemplate = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Plus Jakarta Sans', sans-serif; background: #ffffff; color: #1e293b; padding: 30px; }
-          .invoice-box { max-width: 800px; margin: auto; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border-radius: 16px; border: 1px solid #f1f5f9; position: relative; overflow: hidden; }
-          
-          /* Top Gradient Bar */
-          .invoice-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(90deg, #16a34a, #22c55e); }
-          
-          header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px dashed #f1f5f9; }
-          .logo { font-size: 32px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
-          .title { text-align: right; }
-          .title h1 { font-size: 36px; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
-          .title p { color: #64748b; font-size: 15px; font-weight: 600; margin-top: 5px; }
-          
-          .info-grid { display: flex; justify-content: space-between; margin-bottom: 40px; gap: 20px; }
-          .info-col { flex: 1; padding: 25px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; }
-          .info-col h3 { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1.5px; margin-bottom: 12px; }
-          .info-col p { font-size: 14px; color: #334155; margin-bottom: 6px; font-weight: 500; }
-          .info-col p strong { color: #0f172a; }
-          
-          .status-badge { display: inline-block; padding: 4px 12px; background: #dcfce7; color: #166534; border-radius: 30px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-          
-          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          th { background: #16a34a; color: white; padding: 14px 20px; text-align: left; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-          th:first-child { border-radius: 8px 0 0 8px; }
-          th:last-child { border-radius: 0 8px 8px 0; text-align: right; }
-          td { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; font-size: 15px; color: #334155; font-weight: 500; }
-          td:last-child { text-align: right; font-weight: 700; color: #0f172a; }
-          
-          .summary { display: flex; justify-content: flex-end; margin-bottom: 40px; }
-          .summary-box { width: 350px; background: #f8fafc; padding: 25px; border-radius: 12px; }
-          .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 15px; color: #64748b; }
-          .summary-row.total { font-size: 24px; font-weight: 800; color: #16a34a; margin-top: 15px; padding-top: 15px; border-top: 2px dashed #cbd5e1; }
-          
-          .footer-grid { display: flex; gap: 20px; margin-bottom: 30px; }
-          .footer-box { flex: 1; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; }
-          .footer-box h4 { font-size: 14px; color: #0f172a; margin-bottom: 10px; }
-          .footer-box p { font-size: 13px; color: #64748b; line-height: 1.6; }
-          
-          .thanks { text-align: center; color: #94a3b8; font-size: 13px; margin-top: 50px; padding-top: 30px; border-top: 1px solid #f1f5f9; }
-          
-          .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 140px; color: rgba(22, 163, 74, 0.03); font-weight: 900; z-index: -1; pointer-events: none; white-space: nowrap; }
-        </style>
-      </head>
-      <body>
-        <div class="invoice-box">
-          <div class="watermark">FARMORA</div>
-          
-          <header>
-            <div class="logo">🌾 Farmora</div>
-            <div class="title">
-              <h1>Invoice</h1>
-              <p>#${orderDetails._id.toString().slice(-8).toUpperCase()}</p>
-            </div>
-          </header>
-          
-          <div class="info-grid">
-            <div class="info-col">
-              <h3>Billed To</h3>
-              <p><strong>${customerName}</strong></p>
-              <p>${customerEmail}</p>
-              <p>${orderDetails.deliveryAddress?.mobileNumber || orderDetails.deliveryAddress?.phone || 'N/A'}</p>
-            </div>
-            
-            <div class="info-col">
-              <h3>Shipping Address</h3>
-              <p>
-                ${orderDetails.deliveryAddress?.houseNo ? orderDetails.deliveryAddress.houseNo + ', ' : ''}
-                ${orderDetails.deliveryAddress?.street || orderDetails.deliveryAddress?.address?.split(',')[1]?.trim() || orderDetails.deliveryAddress?.address?.split(',')[0]?.trim() || 'N/A'}
-              </p>
-              <p>
-                ${[orderDetails.deliveryAddress?.area, orderDetails.deliveryAddress?.taluka].filter(Boolean).join(', ')}
-              </p>
-              <p>
-                ${[orderDetails.deliveryAddress?.city || orderDetails.deliveryAddress?.district, orderDetails.deliveryAddress?.state].filter(Boolean).join(', ')} 
-                ${orderDetails.deliveryAddress?.pincode ? '- ' + orderDetails.deliveryAddress.pincode : ''}
-              </p>
-            </div>
-            
-            <div class="info-col">
-              <h3>Invoice Details</h3>
-              <p><strong>Date:</strong> ${new Date(orderDetails.createdAt).toLocaleDateString()}</p>
-              <p><strong>Status:</strong> <span class="status-badge">${orderDetails.orderStatus === 'archived' ? 'Completed' : orderDetails.orderStatus}</span></p>
-              <p><strong>Payment:</strong> ${orderDetails.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online'}</p>
-            </div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Item Description</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${orderDetails.items.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td>${item.quantity} ${item.unit}</td>
-                  <td>₹${item.price.toFixed(2)}</td>
-                  <td>₹${(item.price * item.quantity).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="summary">
-            <div class="summary-box">
-              <div class="summary-row">
-                <span>Subtotal</span>
-                <span>₹${(orderDetails.totalAmount || 0).toFixed(2)}</span>
-              </div>
-              <div class="summary-row">
-                <span>Shipping Fee</span>
-                <span>${orderDetails.deliveryFee > 0 ? '₹' + orderDetails.deliveryFee.toFixed(2) : 'FREE'}</span>
-              </div>
-              <div class="summary-row total">
-                <span>Total Due</span>
-                <span>₹${(orderDetails.finalAmount || orderDetails.totalAmount || 0).toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="footer-grid">
-            <div class="footer-box">
-              <h4>📦 Shipping Info</h4>
-              <p>Estimated Delivery: <strong>${estimatedDeliveryDays} Business Days</strong></p>
-              <p>Our delivery executive will contact you prior to arrival at the shipping address.</p>
-            </div>
-            <div class="footer-box">
-              <h4>💬 Need Help?</h4>
-              <p>Email: support@farmoracrops.com</p>
-              <p>Call: +91-9876543210</p>
-            </div>
-          </div>
-          
-          <div class="thanks">
-            <p><strong>Thank you for your business!</strong><br/>Generated automatically on ${new Date().toLocaleString()}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-    
-    // Set content and wait for page to load
-    await page.setContent(htmlTemplate, { waitUntil: 'networkidle0' });
-    
-    // Generate PDF
-    console.log('📄 Generating PDF with Puppeteer...');
-    
-    // Wait for PDF to be fully generated and written to disk
-    const pdfBuffer = await page.pdf({
-      path: filepath,
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '15mm',
-        bottom: '20mm',
-        left: '15mm'
-      },
-      displayHeaderFooter: true,
-      headerTemplate: `
-        <div style="font-size: 10px; color: #666; text-align: center; width: 100%;">
-          Farmora Crops - Order Invoice
-        </div>
-      `,
-      footerTemplate: `
-        <div style="font-size: 8px; color: #666; text-align: center; width: 100%;">
-          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-        </div>
-      `,
-      preferCSSPageSize: true
-    });
-    
-    // Wait a moment to ensure file is fully written to disk
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Verify the file exists and has content
-    let fileExists = false;
-    let fileSize = 0;
-    let retries = 0;
-    const maxRetries = 10;
-    
-    while (!fileExists && retries < maxRetries) {
-      try {
-        if (fs.existsSync(filepath)) {
-          const stats = fs.statSync(filepath);
-          fileSize = stats.size;
-          if (fileSize > 0) {
-            fileExists = true;
-            console.log(`✅ PDF file verified: ${filename} (${fileSize} bytes)`);
-          } else {
-            console.log(`⏳ File exists but empty, retrying... (${retries + 1}/${maxRetries})`);
-          }
-        } else {
-          console.log(`⏳ File not yet created, retrying... (${retries + 1}/${maxRetries})`);
-        }
-      } catch (error) {
-        console.log(`⏳ Error checking file, retrying... (${retries + 1}/${maxRetries}): ${error.message}`);
-      }
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      const stream = fs.createWriteStream(filepath);
+
+      doc.pipe(stream);
+
+      // ── Colors ──
+      const green = '#16a34a';
+      const darkGreen = '#114714';
+      const dark = '#0f172a';
+      const gray = '#64748b';
+      const lightBg = '#f8fafc';
+      const borderColor = '#e2e8f0';
+
+      // ── Top accent bar ──
+      doc.rect(0, 0, doc.page.width, 8).fill(green);
+
+      // ── Header ──
+      doc.moveDown(1);
+      doc.fontSize(26).fillColor(green).text('🌾 Farmora Crops', 40, 30);
+      doc.fontSize(28).fillColor(dark).text('INVOICE', 350, 25, { align: 'right' });
+      doc.fontSize(12).fillColor(gray).text(
+        `#${orderDetails._id.toString().slice(-8).toUpperCase()}`,
+        350, 58, { align: 'right' }
+      );
+
+      // ── Divider ──
+      doc.moveTo(40, 80).lineTo(555, 80).dash(3, { space: 3 }).strokeColor(borderColor).stroke();
+      doc.undash();
+
+      // ── Info boxes ──
+      const boxY = 95;
+      const boxH = 95;
+
+      // Billed To
+      doc.rect(40, boxY, 165, boxH).fill(lightBg).stroke(borderColor);
+      doc.fontSize(8).fillColor(gray).text('BILLED TO', 50, boxY + 10);
+      doc.fontSize(11).fillColor(dark).text(customerName, 50, boxY + 25, { width: 145 });
+      doc.fontSize(9).fillColor(gray).text(customerEmail, 50, boxY + 42, { width: 145 });
+      doc.fontSize(9).fillColor(gray).text(
+        orderDetails.deliveryAddress?.mobileNumber || orderDetails.deliveryAddress?.phone || '',
+        50, boxY + 57, { width: 145 }
+      );
+
+      // Shipping Address
+      doc.rect(215, boxY, 175, boxH).fill(lightBg).stroke(borderColor);
+      doc.fontSize(8).fillColor(gray).text('SHIPPING ADDRESS', 225, boxY + 10);
+      const addrParts = [
+        orderDetails.deliveryAddress?.houseNo,
+        orderDetails.deliveryAddress?.street,
+        orderDetails.deliveryAddress?.area
+      ].filter(Boolean).join(', ');
+      const cityLine = [
+        orderDetails.deliveryAddress?.city || orderDetails.deliveryAddress?.district,
+        orderDetails.deliveryAddress?.state
+      ].filter(Boolean).join(', ');
+      const pincode = orderDetails.deliveryAddress?.pincode ? ` - ${orderDetails.deliveryAddress.pincode}` : '';
+
+      doc.fontSize(9).fillColor(dark).text(addrParts || 'N/A', 225, boxY + 25, { width: 155 });
+      doc.fontSize(9).fillColor(gray).text(`${cityLine}${pincode}`, 225, boxY + 55, { width: 155 });
+
+      // Invoice Details
+      doc.rect(400, boxY, 155, boxH).fill(lightBg).stroke(borderColor);
+      doc.fontSize(8).fillColor(gray).text('INVOICE DETAILS', 410, boxY + 10);
+      doc.fontSize(9).fillColor(dark).text(`Date: ${new Date(orderDetails.createdAt).toLocaleDateString('en-IN')}`, 410, boxY + 25);
       
-      if (!fileExists) {
-        retries++;
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    }
-    
-    if (!fileExists) {
-      throw new Error(`PDF file could not be verified after ${maxRetries} attempts`);
-    }
-    
-    console.log(`✅ Puppeteer PDF generated: ${filename}`);
-    
-    // Close page before browser
-    await page.close();
-    console.log('📄 Puppeteer page closed');
-    
-    return {
-      filename,
-      filepath,
-      success: true,
-      size: fileSize
-    };
-    
+      const statusText = orderDetails.orderStatus === 'archived' ? 'Completed' : 
+        orderDetails.orderStatus.charAt(0).toUpperCase() + orderDetails.orderStatus.slice(1);
+      doc.fontSize(9).fillColor(dark).text(`Status: ${statusText}`, 410, boxY + 42);
+      
+      const paymentText = orderDetails.paymentMethod === 'cod' ? 'Cash on Delivery' : 
+        orderDetails.paymentMethod === 'razorpay' ? 'Online (Razorpay)' : 'Online';
+      doc.fontSize(9).fillColor(dark).text(`Payment: ${paymentText}`, 410, boxY + 59);
+
+      // ── Items Table ──
+      const tableTop = boxY + boxH + 25;
+      
+      // Table header
+      doc.rect(40, tableTop, 515, 30).fill(green);
+      doc.fontSize(10).fillColor('#ffffff');
+      doc.text('ITEM', 50, tableTop + 9);
+      doc.text('QTY', 320, tableTop + 9);
+      doc.text('PRICE', 395, tableTop + 9);
+      doc.text('AMOUNT', 475, tableTop + 9);
+
+      // Table rows
+      let rowY = tableTop + 30;
+      const items = orderDetails.items || [];
+
+      items.forEach((item, index) => {
+        const rowBg = index % 2 === 0 ? '#ffffff' : lightBg;
+        doc.rect(40, rowY, 515, 28).fill(rowBg);
+        
+        doc.fontSize(10).fillColor(dark).text(item.name, 50, rowY + 8, { width: 260 });
+        doc.fontSize(10).fillColor(gray).text(`${item.quantity} ${item.unit || ''}`, 320, rowY + 8);
+        doc.fontSize(10).fillColor(gray).text(`₹${item.price.toFixed(2)}`, 395, rowY + 8);
+        doc.fontSize(10).fillColor(dark).text(`₹${(item.price * item.quantity).toFixed(2)}`, 475, rowY + 8);
+        
+        rowY += 28;
+      });
+
+      // Bottom border of table
+      doc.moveTo(40, rowY).lineTo(555, rowY).strokeColor(borderColor).stroke();
+
+      // ── Summary ──
+      const summaryX = 370;
+      const summaryY = rowY + 15;
+
+      doc.rect(summaryX, summaryY, 185, 95).fill(lightBg).stroke(borderColor);
+
+      doc.fontSize(10).fillColor(gray).text('Subtotal', summaryX + 15, summaryY + 12);
+      doc.fontSize(10).fillColor(dark).text(
+        `₹${(orderDetails.totalAmount || 0).toFixed(2)}`,
+        summaryX + 100, summaryY + 12, { align: 'right', width: 70 }
+      );
+
+      doc.fontSize(10).fillColor(gray).text('Delivery Fee', summaryX + 15, summaryY + 32);
+      doc.fontSize(10).fillColor(dark).text(
+        orderDetails.deliveryFee > 0 ? `₹${orderDetails.deliveryFee.toFixed(2)}` : 'FREE',
+        summaryX + 100, summaryY + 32, { align: 'right', width: 70 }
+      );
+
+      // Total line
+      doc.moveTo(summaryX + 10, summaryY + 52).lineTo(summaryX + 175, summaryY + 52)
+        .dash(3, { space: 3 }).strokeColor(gray).stroke();
+      doc.undash();
+
+      doc.fontSize(14).fillColor(green).text('Total Due', summaryX + 15, summaryY + 62);
+      doc.fontSize(14).fillColor(green).text(
+        `₹${(orderDetails.finalAmount || orderDetails.totalAmount || 0).toFixed(2)}`,
+        summaryX + 80, summaryY + 62, { align: 'right', width: 90 }
+      );
+
+      // ── Footer boxes ──
+      const footerY = summaryY + 120;
+
+      // Shipping Info
+      doc.rect(40, footerY, 250, 65).fill(lightBg).stroke(borderColor);
+      doc.fontSize(10).fillColor(dark).text('📦 Shipping Info', 50, footerY + 10);
+      doc.fontSize(9).fillColor(gray).text(
+        `Estimated Delivery: ${estimatedDeliveryDays} Business Days`,
+        50, footerY + 28, { width: 230 }
+      );
+      doc.fontSize(8).fillColor(gray).text(
+        'Our delivery executive will contact you before arrival.',
+        50, footerY + 44, { width: 230 }
+      );
+
+      // Need Help
+      doc.rect(305, footerY, 250, 65).fill(lightBg).stroke(borderColor);
+      doc.fontSize(10).fillColor(dark).text('💬 Need Help?', 315, footerY + 10);
+      doc.fontSize(9).fillColor(gray).text('Email: farmoracrops@gmail.com', 315, footerY + 28);
+      doc.fontSize(9).fillColor(gray).text('Call: +91 8733040849', 315, footerY + 44);
+
+      // ── Thank you ──
+      doc.moveTo(40, footerY + 80).lineTo(555, footerY + 80).strokeColor(borderColor).stroke();
+      doc.fontSize(10).fillColor(gray).text(
+        'Thank you for your business!',
+        40, footerY + 90, { align: 'center', width: 515 }
+      );
+      doc.fontSize(8).fillColor(gray).text(
+        `Generated on ${new Date().toLocaleString('en-IN')} | © ${new Date().getFullYear()} Farmora Crops`,
+        40, footerY + 106, { align: 'center', width: 515 }
+      );
+
+      doc.end();
+
+      stream.on('finish', () => {
+        const stats = fs.statSync(filepath);
+        console.log(`✅ PDFKit invoice generated: ${filename} (${stats.size} bytes)`);
+        resolve({
+          filename,
+          filepath,
+          success: true,
+          size: stats.size
+        });
+      });
+
+      stream.on('error', (err) => {
+        console.error('❌ PDF stream error:', err);
+        reject(err);
+      });
+    });
+
   } catch (error) {
-    console.error('❌ Puppeteer PDF generation error:', error);
+    console.error('❌ PDFKit invoice generation error:', error);
     throw error;
-  } finally {
-    if (browser) {
-      await browser.close();
-      console.log('🔒 Puppeteer browser closed');
-    }
   }
 };
 
