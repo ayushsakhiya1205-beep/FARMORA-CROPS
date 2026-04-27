@@ -38,7 +38,7 @@ const buildInventoryCatalog = async (outletId) => {
       productId: product._id.toString(),
       productName: product.name,
       category: product.category,
-      quantity: existingItem?.quantity ?? 50,
+      quantity: existingItem?.quantity || 0,
       unit: existingItem?.unit || product.unit || 'kg',
       lowStockThreshold: existingItem?.lowStockThreshold || getDefaultThreshold(product.category),
       image: product.image || '',
@@ -149,7 +149,7 @@ router.post('/adjust', auth, authorize('outletManager', 'admin'), async (req, re
         productId: product._id.toString(),
         productName: product.name,
         category: product.category,
-        quantity: 50,
+        quantity: 0,
         unit: product.unit || 'kg',
         lowStockThreshold: getDefaultThreshold(product.category),
         updatedBy: req.user._id || req.user.id
